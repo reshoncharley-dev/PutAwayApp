@@ -860,6 +860,7 @@ const PickRunView: React.FC<{
       <TextInput
         placeholder="Scan or type barcode here…"
         leftSection={<IconSearch size={16} />}
+        autoFocus
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             const val = e.currentTarget.value.trim();
@@ -1575,6 +1576,7 @@ export default function InventoryScanner() {
             <TextInput
               placeholder="Scan or type barcode here…"
               leftSection={<IconSearch size={16} />}
+              autoFocus
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   const val = e.currentTarget.value.trim();
