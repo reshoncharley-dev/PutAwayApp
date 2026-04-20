@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo, memo } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo, memo, useDeferredValue } from "react";
 import Papa from "papaparse";
 import * as GSheets from "./GoogleSheetsService";
 import {
@@ -216,12 +216,19 @@ const useInventorySearch = (inventoryList: InventoryItem[]) => {
 
 const ScanResult: React.FC<{ scannedCode: string; found: boolean; scannedItem?: InventoryItem | null }> = ({ scannedCode, found, scannedItem }) => {
   if (!scannedCode) return null;
+  const scheme = useComputedColorScheme("light");
+  const isDark = scheme === "dark";
   const deployReason = scannedItem ? getColumnValue(scannedItem, "deployReason") : null;
   const deployStatus = scannedItem ? getColumnValue(scannedItem, "deployStatus") : null;
   const productTitle = scannedItem ? getColumnValue(scannedItem, "productTitle") : null;
   const organization = scannedItem ? getColumnValue(scannedItem, "organization") : null;
   const drNorm = deployReason?.toString().trim().toUpperCase() || "";
   const isRecycle = drNorm === "RECYCLING_REQUESTED";
+  const bg = found
+    ? (isDark ? "rgba(22,163,74,0.18)" : "linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)")
+    : (isDark ? "rgba(220,38,38,0.18)" : "linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)");
+  const textColor = found ? (isDark ? "#4ade80" : "#15803d") : (isDark ? "#f87171" : "#b91c1c");
+  const subColor = found ? (isDark ? "#86efac" : "#166534") : (isDark ? "#fca5a5" : "#991b1b");
   return (
     <Paper
       radius="xl"
@@ -229,10 +236,8 @@ const ScanResult: React.FC<{ scannedCode: string; found: boolean; scannedItem?: 
       mb="sm"
       className="scan-result-enter"
       style={{
-        background: found
-          ? "linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)"
-          : "linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)",
-        border: `2px solid ${found ? "#16a34a" : "#dc2626"}`,
+        background: bg,
+        border: `2px solid ${found ? (isDark ? "#16a34a" : "#16a34a") : (isDark ? "#dc2626" : "#dc2626")}`,
       }}
     >
       <Group gap="md" align="center">
@@ -240,26 +245,26 @@ const ScanResult: React.FC<{ scannedCode: string; found: boolean; scannedItem?: 
           radius="xl"
           size={48}
           color={found ? "green" : "red"}
-          variant="filled"
+          variant={isDark ? "light" : "filled"}
           style={{ flexShrink: 0, boxShadow: found ? "0 4px 14px rgba(22,163,74,0.35)" : "0 4px 14px rgba(220,38,38,0.35)" }}
         >
           {found ? <IconCheck size={24} /> : <IconX size={24} />}
         </ThemeIcon>
         <div style={{ flex: 1, minWidth: 0 }}>
           <Group gap="xs" align="center" mb={2}>
-            <Text fw={800} ff="monospace" size="lg" style={{ color: found ? "#15803d" : "#b91c1c" }}>{scannedCode}</Text>
+            <Text fw={800} ff="monospace" size="lg" style={{ color: textColor }}>{scannedCode}</Text>
             <Badge color={found ? "green" : "red"} variant="filled" size="sm" radius="xl">{found ? "✓ Found" : "✗ Not Found"}</Badge>
           </Group>
           {productTitle && productTitle !== "N/A" && (
-            <Text size="sm" fw={500} style={{ color: found ? "#166534" : "#991b1b" }} truncate>{productTitle}</Text>
+            <Text size="sm" fw={500} style={{ color: subColor }} truncate>{productTitle}</Text>
           )}
           {(organization && organization !== "N/A") && (
-            <Text size="xs" style={{ color: found ? "#15803d" : "#b91c1c", opacity: 0.75 }}>{organization}</Text>
+            <Text size="xs" style={{ color: textColor, opacity: 0.75 }}>{organization}</Text>
           )}
           {(deployReason && deployReason !== "N/A") || (deployStatus && deployStatus !== "N/A") ? (
             <Group gap={4} mt={4}>
               {deployReason && deployReason !== "N/A" && (
-                <Badge size="xs" color={isRecycle ? "yellow" : "orange"} variant="light" radius="xl">
+                <Badge size="xs" color={isRecycle ? "yellow" : "red"} variant="light" radius="xl">
                   {formatDeployReason(deployReason)}
                 </Badge>
               )}
@@ -334,53 +339,27 @@ const InventoryItemRow = memo<{ item: InventoryItem; isFound: boolean; isNotFoun
           </Text>
 
           <Group gap={6} style={{ flexWrap: "wrap" }}>
-            <Badge
-              size="xs"
-              variant="light"
-              color="teal"
-              radius="xl"
-              ff="monospace"
-              styles={{ root: { backgroundColor: "#ccfbf1", color: "#0f766e" } }}
-            >
+            <Badge size="sm" variant="light" color="indigo" radius="xl" ff="monospace">
               SN: {serial}
             </Badge>
-            <Badge
-              size="xs"
-              variant="light"
-              color="violet"
-              radius="xl"
-              ff="monospace"
-              styles={{ root: { backgroundColor: "#ede9fe", color: "#5b21b6" } }}
-            >
+            <Badge size="sm" variant="light" color="lime" radius="xl" ff="monospace">
               ID: {inventoryId}
             </Badge>
             {organization && organization !== "N/A" && (
-              <Badge
-                size="xs"
-                variant="light"
-                color="cyan"
-                radius="xl"
-                styles={{ root: { backgroundColor: "#cffafe", color: "#155e75" } }}
-              >
+              <Badge size="sm" variant="light" color="orange" radius="xl">
                 {organization}
               </Badge>
             )}
             {category && category !== "N/A" && (
-              <Badge
-                size="xs"
-                variant="light"
-                color="grape"
-                radius="xl"
-                styles={{ root: { backgroundColor: "#f3e8ff", color: "#6b21a8" } }}
-              >
+              <Badge size="sm" variant="light" color="pink" radius="xl">
                 {formatCategory(category)}
               </Badge>
             )}
             {deployReason && deployReason !== "N/A" && (
-              <Badge size="xs" variant="light" color={isRecycle ? "yellow" : "orange"} radius="xl">{formatDeployReason(deployReason)}</Badge>
+              <Badge size="sm" variant="light" color={isRecycle ? "yellow" : "red"} radius="xl">{formatDeployReason(deployReason)}</Badge>
             )}
             {deployStatus && deployStatus !== "N/A" && (
-              <Badge size="xs" variant="light" color={deployStatus.toString().toUpperCase() === "AVAILABLE" ? "teal" : "violet"} radius="xl">{formatDeployStatus(deployStatus)}</Badge>
+              <Badge size="sm" variant="light" color={deployStatus.toString().toUpperCase() === "AVAILABLE" ? "teal" : "violet"} radius="xl">{formatDeployStatus(deployStatus)}</Badge>
             )}
           </Group>
         </Stack>
@@ -433,17 +412,17 @@ const GoogleSheetsConnector: React.FC<{
 
   if (!googleState.isSignedIn) {
     return (
-      <Paper radius="xl" p="lg" style={{ background: "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)", border: "1.5px solid #bbf7d0" }}>
+      <Paper radius="xl" p="lg" withBorder style={{ backgroundColor: "rgba(22,163,74,0.06)", borderColor: "rgba(22,163,74,0.25)", boxShadow: "var(--card-shadow)" }}>
         <Group gap="md" mb="md">
           <ThemeIcon radius="xl" size={44} color="green" variant="light" style={{ flexShrink: 0 }}>
             <IconFileSpreadsheet size={22} />
           </ThemeIcon>
           <div>
-            <Text fw={700} size="md" style={{ color: "#15803d" }}>Google Sheets</Text>
-            <Text size="xs" style={{ color: "#4ade80" }}>Import, sync & export inventory</Text>
+            <Text fw={700} size="md" style={{ color: "var(--text-primary)" }}>Google Sheets</Text>
+            <Text size="xs" style={{ color: "var(--text-secondary)" }}>Import, sync & export inventory</Text>
           </div>
         </Group>
-        <Text size="sm" style={{ color: "#166534" }} mb="md" lh={1.6}>
+        <Text size="sm" style={{ color: "var(--text-secondary)" }} mb="md" lh={1.6}>
           Connect your Google account to pull inventory from Sheets, sync scans live, and push results back.
         </Text>
         {googleState.error && <Alert color="red" mb="sm" radius="md">{googleState.error}</Alert>}
@@ -456,11 +435,11 @@ const GoogleSheetsConnector: React.FC<{
 
   if (!googleState.isConnected) {
     return (
-      <Paper radius="xl" p="lg" style={{ background: "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)", border: "1.5px solid #86efac" }}>
+      <Paper radius="xl" p="lg" withBorder style={{ backgroundColor: "rgba(22,163,74,0.06)", borderColor: "rgba(22,163,74,0.25)", boxShadow: "var(--card-shadow)" }}>
         <Group justify="space-between" mb="md" align="center">
           <Group gap="xs">
             <Box style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#16a34a", boxShadow: "0 0 0 3px rgba(22,163,74,0.2)" }} />
-            <Text fw={700} size="sm" style={{ color: "#15803d" }}>Choose a Spreadsheet</Text>
+            <Text fw={700} size="sm" style={{ color: "var(--text-primary)" }}>Choose a Spreadsheet</Text>
           </Group>
           <Button size="xs" variant="subtle" color="red" radius="xl" onClick={onSignOut}>Sign Out</Button>
         </Group>
@@ -476,7 +455,7 @@ const GoogleSheetsConnector: React.FC<{
               {googleState.recentSpreadsheets.map((sheet) => (
                 <Paper
                   key={sheet.id} p="sm" radius="lg"
-                  style={{ cursor: "pointer", opacity: selectLoading && selectLoading !== sheet.id ? 0.45 : 1, backgroundColor: "rgba(255,255,255,0.75)", border: "1px solid #d1fae5", transition: "box-shadow 0.15s" }}
+                  style={{ cursor: "pointer", opacity: selectLoading && selectLoading !== sheet.id ? 0.45 : 1, backgroundColor: "var(--item-bg)", border: "1px solid var(--section-border)", transition: "box-shadow 0.15s" }}
                   onClick={() => handleSelectSpreadsheet(sheet.id)}
                 >
                   <Group gap="sm" wrap="nowrap">
@@ -484,10 +463,10 @@ const GoogleSheetsConnector: React.FC<{
                       <IconFileSpreadsheet size={14} />
                     </ThemeIcon>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <Text size="sm" fw={600} truncate style={{ color: "#15803d" }}>{sheet.name}</Text>
+                      <Text size="sm" fw={600} truncate style={{ color: "var(--text-primary)" }}>{sheet.name}</Text>
                       <Text size="xs" c="dimmed">Modified {new Date(sheet.modifiedTime).toLocaleDateString()}</Text>
                     </div>
-                    {selectLoading === sheet.id ? <Loader size="xs" color="green" /> : <IconChevronDown size={14} style={{ transform: "rotate(-90deg)", color: "#86efac" }} />}
+                    {selectLoading === sheet.id ? <Loader size="xs" color="green" /> : <IconChevronDown size={14} style={{ transform: "rotate(-90deg)", color: "var(--text-muted)" }} />}
                   </Group>
                 </Paper>
               ))}
@@ -496,7 +475,7 @@ const GoogleSheetsConnector: React.FC<{
         ) : (
           <Text ta="center" c="dimmed" size="sm" mb="sm" p="md">No spreadsheets found. Try pasting a URL below.</Text>
         )}
-        <Divider my="sm" color="#bbf7d0" />
+        <Divider my="sm" color="var(--divider-color)" />
         {showUrlInput ? (
           <Group gap="sm">
             <TextInput flex={1} placeholder="Paste Google Sheet URL…" value={manualUrl} radius="xl"
@@ -514,11 +493,11 @@ const GoogleSheetsConnector: React.FC<{
   }
 
   return (
-    <Paper radius="xl" p="md" style={{ background: "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)", border: "1.5px solid #86efac" }}>
+    <Paper radius="xl" p="md" withBorder style={{ backgroundColor: "rgba(22,163,74,0.06)", borderColor: "rgba(22,163,74,0.25)", boxShadow: "var(--card-shadow)" }}>
       <Group justify="space-between" mb="sm" wrap="nowrap">
         <Group gap="xs" style={{ flex: 1, minWidth: 0 }}>
           <Box style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#16a34a", boxShadow: "0 0 0 3px rgba(22,163,74,0.2)", flexShrink: 0 }} />
-          <Text fw={700} size="sm" truncate style={{ color: "#15803d" }}>{googleState.spreadsheetTitle}</Text>
+          <Text fw={700} size="sm" truncate style={{ color: "var(--text-primary)" }}>{googleState.spreadsheetTitle}</Text>
         </Group>
         <Button size="xs" variant="subtle" color="red" radius="xl" onClick={onDisconnect}>Disconnect</Button>
       </Group>
@@ -679,53 +658,27 @@ const VirtualizedPickItems = memo<{
                   </Text>
 
                   <Group gap={6} style={{ flexWrap: "wrap" }}>
-                    <Badge
-                      size="xs"
-                      variant="light"
-                      color="blue"
-                      radius="xl"
-                      ff="monospace"
-                      styles={{ root: { backgroundColor: "#dbeafe", color: "#1e3a8a" } }}
-                    >
+                    <Badge size="sm" variant="light" color="indigo" radius="xl" ff="monospace">
                       SN: {serial}
                     </Badge>
-                    <Badge
-                      size="xs"
-                      variant="light"
-                      color="pink"
-                      radius="xl"
-                      ff="monospace"
-                      styles={{ root: { backgroundColor: "#fce7f3", color: "#9d174d" } }}
-                    >
+                    <Badge size="sm" variant="light" color="lime" radius="xl" ff="monospace">
                       ID: {inventoryId}
                     </Badge>
                     {organization && organization !== "N/A" && (
-                      <Badge
-                        size="xs"
-                        variant="light"
-                        color="cyan"
-                        radius="xl"
-                        styles={{ root: { backgroundColor: "#cffafe", color: "#155e75" } }}
-                      >
+                      <Badge size="sm" variant="light" color="orange" radius="xl">
                         {organization}
                       </Badge>
                     )}
                     {category && category !== "N/A" && (
-                      <Badge
-                        size="xs"
-                        variant="light"
-                        color="grape"
-                        radius="xl"
-                        styles={{ root: { backgroundColor: "#f3e8ff", color: "#6b21a8" } }}
-                      >
+                      <Badge size="sm" variant="light" color="pink" radius="xl">
                         {formatCategory(category)}
                       </Badge>
                     )}
                     {deployReason && deployReason !== "N/A" && (
-                      <Badge size="xs" variant="light" color={isRecycle ? "yellow" : "orange"} radius="xl">{formatDeployReason(deployReason)}</Badge>
+                      <Badge size="sm" variant="light" color={isRecycle ? "yellow" : "red"} radius="xl">{formatDeployReason(deployReason)}</Badge>
                     )}
                     {deployStatus && deployStatus !== "N/A" && (
-                      <Badge size="xs" variant="light" color={deployStatus.toString().toUpperCase() === "AVAILABLE" ? "teal" : "violet"} radius="xl">{formatDeployStatus(deployStatus)}</Badge>
+                      <Badge size="sm" variant="light" color={deployStatus.toString().toUpperCase() === "AVAILABLE" ? "teal" : "violet"} radius="xl">{formatDeployStatus(deployStatus)}</Badge>
                     )}
                   </Group>
                 </Stack>
@@ -860,37 +813,6 @@ const PickRunView: React.FC<{
   return (
     <Stack gap="md">
 
-      {/* Header */}
-      <Paper radius="xl" p="lg" style={{ background: "linear-gradient(135deg, #ea580c 0%, #dc2626 100%)", boxShadow: "0 8px 32px rgba(234,88,12,0.35)" }}>
-        <Group justify="space-between" mb="sm" align="center">
-          <Group gap="sm">
-            <ThemeIcon radius="xl" size={36} style={{ backgroundColor: "rgba(255,255,255,0.2)" }} variant="transparent">
-              <IconWalk size={20} color="white" />
-            </ThemeIcon>
-            <div>
-              <Text size="lg" fw={800} style={{ color: "#ffffff", lineHeight: 1.1 }}>Pick Run</Text>
-              <Text size="xs" style={{ color: "rgba(255,255,255,0.65)" }}>{pct}% complete</Text>
-            </div>
-          </Group>
-          <Button variant="white" color="orange" size="xs" radius="xl" onClick={onClose} style={{ fontWeight: 700 }}>
-            Exit
-          </Button>
-        </Group>
-        <Progress value={pct} size={6} radius="xl" mb="md" color="rgba(255,255,255,0.95)" styles={{ root: { backgroundColor: "rgba(255,255,255,0.2)" } }} />
-        <SimpleGrid cols={3} spacing="xs">
-          {[
-            { value: totalFound, label: "Scanned", color: "rgba(134,239,172,0.9)" },
-            { value: totalNotHere, label: "Not Here", color: "rgba(252,165,165,0.9)" },
-            { value: totalRemaining + unmappedUnfound.length, label: "Remaining", color: "rgba(255,255,255,0.75)" },
-          ].map((s) => (
-            <Paper key={s.label} p="xs" radius="lg" style={{ backgroundColor: "rgba(255,255,255,0.12)", textAlign: "center" }}>
-              <Text size="xl" fw={900} style={{ color: s.color, lineHeight: 1.1 }}>{s.value}</Text>
-              <Text size="xs" fw={500} style={{ color: "rgba(255,255,255,0.65)", marginTop: 2 }}>{s.label}</Text>
-            </Paper>
-          ))}
-        </SimpleGrid>
-      </Paper>
-
       <Select
         label="Deploy Reason Filter"
         value={deployReasonFilter}
@@ -899,6 +821,40 @@ const PickRunView: React.FC<{
         leftSection={<IconFilter size={15} />}
         radius="xl"
       />
+
+      {/* Header */}
+      <Paper radius="xl" p="lg" withBorder style={{ backgroundColor: "rgba(249,115,22,0.08)", borderColor: "rgba(249,115,22,0.25)", boxShadow: "var(--card-shadow)" }}>
+        <Group justify="space-between" mb="sm" align="center">
+          <Group gap="sm">
+            <ThemeIcon radius="xl" size={36} color="orange" variant="light">
+              <IconWalk size={20} />
+            </ThemeIcon>
+            <div>
+              <Group gap="xs" align="center">
+                <Text size="lg" fw={800} style={{ color: "var(--text-primary)", lineHeight: 1.1 }}>Pick Run</Text>
+                <Text size="sm" style={{ color: "var(--text-secondary)" }}>Aisles 1–14 By Outbound → Aisles 15-21 By Retrievals</Text>
+              </Group>
+              <Text size="xs" style={{ color: "var(--text-muted)" }}>{pct}% complete</Text>
+            </div>
+          </Group>
+          <Button variant="light" color="orange" size="xs" radius="xl" onClick={onClose} style={{ fontWeight: 700 }}>
+            Exit
+          </Button>
+        </Group>
+        <Progress value={pct} size={6} radius="xl" mb="md" color="orange" styles={{ root: { backgroundColor: "rgba(249,115,22,0.15)" } }} />
+        <SimpleGrid cols={3} spacing="xs">
+          {[
+            { value: totalFound, label: "Scanned", color: "#16a34a" },
+            { value: totalNotHere, label: "Not Here", color: "#dc2626" },
+            { value: totalRemaining + unmappedUnfound.length, label: "Remaining", color: "var(--text-primary)" },
+          ].map((s) => (
+            <Paper key={s.label} p="xs" radius="lg" withBorder style={{ backgroundColor: "rgba(249,115,22,0.06)", borderColor: "rgba(249,115,22,0.15)", textAlign: "center" }}>
+              <Text size="xl" fw={900} style={{ color: s.color, lineHeight: 1.1 }}>{s.value}</Text>
+              <Text size="xs" fw={500} style={{ color: "var(--text-muted)", marginTop: 2 }}>{s.label}</Text>
+            </Paper>
+          ))}
+        </SimpleGrid>
+      </Paper>
 
       {lastScannedCode && <ScanResult scannedCode={lastScannedCode} found={lastScanFound} />}
 
@@ -912,28 +868,7 @@ const PickRunView: React.FC<{
         </Paper>
       )}
 
-      {/* Walk Route */}
-      <Paper radius="xl" p="sm" style={{ backgroundColor: "var(--section-bg)", border: "1.5px solid var(--section-border)" }}>
-        <Group gap="xs" mb={2}>
-          <IconRoute size={14} color="var(--text-muted)" />
-          <Text size="xs" fw={700} tt="uppercase" style={{ color: "var(--text-muted)", letterSpacing: "0.07em" }}>Walk Route</Text>
-        </Group>
-        <Text size="xs" style={{ color: "var(--text-secondary)" }}>Aisles 1–14 → Rows 15–21 → Row 23 (bottom floor)</Text>
-      </Paper>
 
-      {activeZone && activeOrganization && (
-        <Paper radius="xl" p="sm" style={{ backgroundColor: "var(--section-bg)", border: "1.5px solid var(--section-border)" }}>
-          <Group gap="sm">
-            <ThemeIcon radius="xl" size={32} variant="light" style={{ flexShrink: 0, backgroundColor: "var(--item-bg)", color: "var(--text-secondary)", border: "1px solid var(--section-border)" }}>
-              <IconWalk size={16} />
-            </ThemeIcon>
-            <div>
-              <Text size="sm" fw={700} style={{ color: "var(--text-primary)" }}>Now: {activeZone.zoneName} → {activeOrganization}</Text>
-              <Text size="xs" style={{ color: "var(--text-secondary)" }}>Showing only this org until aisle is done.</Text>
-            </div>
-          </Group>
-        </Paper>
-      )}
 
       {/* Zone cards */}
       {liveZones.map((zone) => {
@@ -979,6 +914,7 @@ const PickRunView: React.FC<{
                 <Group gap={6} align="center">
                   <Text size="sm" fw={700} c={allDone ? "green" : undefined} td={allDone ? "line-through" : undefined}>{zone.zoneName}</Text>
                   {isActiveZone && <Badge size="xs" color="gray" variant="light" radius="xl">Active</Badge>}
+                  {isActiveZone && activeOrganization && <Text size="sm" fw={700} c={allDone ? "green" : undefined} td={allDone ? "line-through" : undefined}>→ {activeOrganization}</Text>}
                 </Group>
                 <Group gap={8} mt={2}>
                   {scannedCount > 0 && <Text size="xs" style={{ color: "#16a34a" }} fw={600}>{scannedCount} scanned</Text>}
@@ -1036,7 +972,7 @@ const PickRunView: React.FC<{
                           <Text size="xs" fw={700} ff="monospace" style={{ color: "var(--text-secondary)" }}>{safeValue(item, "serialNumber")} / {safeValue(item, "inventoryId")}</Text>
                           <Text size="xs" c="dimmed" truncate>{safeValue(item, "productTitle")}</Text>
                         </div>
-                        <Badge size="xs" variant="light" color="violet" radius="xl">{(getColumnValue(item, "organization") as string) || "No Org"}</Badge>
+                        <Badge size="sm" variant="light" color="violet" radius="xl">{(getColumnValue(item, "organization") as string) || "No Org"}</Badge>
                       </Group>
                     </Paper>
                   );
@@ -1111,6 +1047,7 @@ export default function InventoryScanner() {
   const [organizations, setOrganizations] = useState<string[]>([]);
   const [organizationFilter, setOrganizationFilter] = useState("ALL");
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showImportSection, setShowImportSection] = useState(false);
   const uploadStatusTimerRef = useRef<number | undefined>(undefined);
   const [pickRunMode, setPickRunMode] = useState(false);
   const [pickRunData, setPickRunData] = useState<PickRunDataType | null>(null);
@@ -1137,8 +1074,10 @@ export default function InventoryScanner() {
   const queueGoogleSyncRef = useRef<((item: InventoryItem) => void) | null>(null);
   const { searchQuery, setSearchQuery, filteredList } = useInventorySearch(inventoryList);
 
-  const isItemFound = useCallback((item: InventoryItem) => { const fc = detectedColumns.found || "Found"; return foundIdSet.has(item._id) || !!(item as Record<string, unknown>)[fc]; }, [foundIdSet, detectedColumns]);
-  const isItemNotFound = useCallback((item: InventoryItem) => notFoundIdSet.has(item._id), [notFoundIdSet]);
+  const deferredFoundIdSet = useDeferredValue(foundIdSet);
+  const deferredNotFoundIdSet = useDeferredValue(notFoundIdSet);
+  const isItemFound = useCallback((item: InventoryItem) => { const fc = detectedColumns.found || "Found"; return deferredFoundIdSet.has(item._id) || !!(item as Record<string, unknown>)[fc]; }, [deferredFoundIdSet, detectedColumns]);
+  const isItemNotFound = useCallback((item: InventoryItem) => deferredNotFoundIdSet.has(item._id), [deferredNotFoundIdSet]);
   const buildLookupMap = useCallback((dataList: InventoryItem[]) => {
     const map = new Map<string, number>();
     dataList.forEach((item, index) => { const inv = normalize(getColumnValue(item, "inventoryId")); const sn = normalize(getColumnValue(item, "serialNumber")); if (inv) map.set(inv, index); if (sn) map.set(sn, index); });
@@ -1333,6 +1272,8 @@ export default function InventoryScanner() {
       setInventoryList(dataList); setFoundMap(initialFoundMap); setFoundIdSet(initialFoundIds); setCsvFileName(`${googleState.spreadsheetTitle} - ${googleState.sheetTab}`); setFoundCount(initialFoundCount); setDetectedColumns(columns); setOrganizations(Array.from(uniqueOrganizations).sort()); setPickRunMode(false); setPickRunData(null); setDeployReasonFilter("ALL"); buildLookupMap(dataList);
       updateGoogleState({ isLoading: false, error: "", sheetHeaders: sheetData.headers, foundColumnIndex: foundColIdx > 0 ? foundColIdx : -1 });
       setUploadStatus(`Loaded ${dataList.length} items from Google Sheet "${googleState.spreadsheetTitle}" → "${googleState.sheetTab}"`);
+      window.clearTimeout(uploadStatusTimerRef.current);
+      uploadStatusTimerRef.current = window.setTimeout(() => setUploadStatus(""), 2000);
       setLastScannedCode("");
       
     } catch (error) { updateGoogleState({ isLoading: false, error: `Failed: ${(error as Error).message}` }); }
@@ -1540,11 +1481,6 @@ export default function InventoryScanner() {
 
         {/* Header */}
         <Box mb="lg" style={{ textAlign: "center" }}>
-          <Group justify="center" gap="xs" mb={6}>
-            <ThemeIcon radius="xl" size={40} variant="gradient" gradient={{ from: "indigo", to: "violet" }} style={{ boxShadow: "0 4px 14px rgba(99,102,241,0.35)" }}>
-              <IconSearch size={20} />
-            </ThemeIcon>
-          </Group>
           <Group justify="center" gap="xs" align="center">
             <Title order={2} style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", letterSpacing: "-0.5px" }}>
               Inventory Scanner
@@ -1576,7 +1512,7 @@ export default function InventoryScanner() {
                 }}
               />
               <Text size="xs" fw={600} style={{ color: inventoryList.length > 0 ? "#15803d" : "var(--text-secondary)" }}>
-                {inventoryList.length > 0 ? `Ready to Scan — ${inventoryList.length} items` : "Load inventory to begin"}
+                {inventoryList.length > 0 ? "Ready to Scan" : "Load inventory to begin"}
               </Text>
             </Box>
           </Group>
@@ -1590,7 +1526,7 @@ export default function InventoryScanner() {
 
         {inventoryList.length > 0 && pickRunMode && pickRunData && (
           <PickRunView
-            pickRunData={pickRunData} inventoryList={inventoryList} detectedColumns={detectedColumns} foundIdSet={foundIdSet} notFoundIdSet={notFoundIdSet} deployReasonFilter={deployReasonFilter} deployReasonOptions={deployReasonOptions} onDeployReasonChange={setDeployReasonFilter} onClose={() => setPickRunMode(false)} lastScannedCode={lastScannedCode} lastScanFound={lastScanFound} notHereItems={notHereItems}
+            pickRunData={pickRunData} inventoryList={inventoryList} detectedColumns={detectedColumns} foundIdSet={deferredFoundIdSet} notFoundIdSet={deferredNotFoundIdSet} deployReasonFilter={deployReasonFilter} deployReasonOptions={deployReasonOptions} onDeployReasonChange={setDeployReasonFilter} onClose={() => setPickRunMode(false)} lastScannedCode={lastScannedCode} lastScanFound={lastScanFound} notHereItems={notHereItems}
             onNotHere={(key, isNotHere, itemId) => {
               setNotHereItems((prev) => { const next = { ...prev }; if (isNotHere) next[key] = true; else delete next[key]; return next; });
               if (itemId) setNotFoundIdSet((prev) => { const next = new Set(prev); if (isNotHere) next.add(itemId); else next.delete(itemId); return next; });
@@ -1615,10 +1551,10 @@ export default function InventoryScanner() {
               leftSection={<IconRoute size={20} />}
               onClick={() => { if (pickRunData) { setPickRunMode(true); } else generatePickRun(); }}
               disabled={inventoryList.length === 0 || unfoundCount === 0}
-              gradient={{ from: "#f97316", to: "#dc2626" }}
-              variant="gradient"
+              color="orange"
+              variant="light"
               radius="xl"
-              style={{ boxShadow: "0 4px 18px rgba(249,115,22,0.35)" }}
+              style={{ boxShadow: "var(--card-shadow)" }}
             >
               Start Pick Run — {unfoundCount} items
             </Button>
@@ -1671,11 +1607,7 @@ export default function InventoryScanner() {
                 }}
               />
 
-              <Group gap={6} mb="sm" wrap="wrap">
-                <Badge size="xs" variant="dot" color="gray">Pending</Badge>
-                <Badge size="xs" variant="dot" color="red">Not Here</Badge>
-                <Badge size="xs" variant="dot" color="green">Found</Badge>
-              </Group>
+
 
               <Paper radius="lg" withBorder p={4} style={{ borderColor: "var(--item-border)", backgroundColor: "var(--card-bg)" }}>
                 <InfiniteScrollList
@@ -1698,50 +1630,107 @@ export default function InventoryScanner() {
 
         {!pickRunMode && (
           <>
-            <Divider my="xl" labelPosition="center" label={
-              <Text size="xs" fw={700} tt="uppercase" style={{ color: "var(--divider-color)", letterSpacing: "0.08em" }}>Import Inventory</Text>
-            } />
-
-            <Stack gap="md">
-              <GoogleSheetsConnector
-                googleState={googleState}
-                onSignIn={handleGoogleSignIn}
-                onSignOut={handleGoogleSignOut}
-                onSelectSpreadsheet={handleGoogleSelectSpreadsheet}
-                onSelectTab={handleGoogleSelectTab}
-                onLoadSheet={handleGoogleLoadSheet}
-                onToggleSync={handleGoogleToggleSync}
-                onExportToSheet={handleGoogleExportToSheet}
-                onDisconnect={handleGoogleDisconnect}
-                hasInventory={inventoryList.length > 0}
-                foundCount={foundCount}
-                totalCount={inventoryList.length}
-              />
-
-              <Divider label={<Text size="xs" c="dimmed" fw={500}>or</Text>} labelPosition="center" />
-
-              <Paper radius="xl" p="lg" style={{ border: "1.5px dashed var(--item-border)", backgroundColor: "var(--section-bg)" }}>
-                <Group gap="md" mb="sm">
-                  <ThemeIcon radius="xl" size={44} color="indigo" variant="light" style={{ flexShrink: 0 }}>
-                    <IconUpload size={20} />
-                  </ThemeIcon>
-                  <div>
-                    <Text fw={700} size="sm" style={{ color: "#3730a3" }}>Upload CSV File</Text>
-                    <Text size="xs" c="dimmed">CSV, TXT, or TSV — click to browse</Text>
-                  </div>
-                </Group>
-                <FileInput
-                  ref={fileInputRef as any}
-                  placeholder="Choose file…"
-                  accept=".csv,.CSV,.txt,.tsv,.tab"
-                  leftSection={<IconUpload size={15} />}
-                  onChange={onFileChange}
+            {inventoryList.length > 0 ? (
+              <>
+                <Divider my="xl" />
+                <Button
+                  variant="light"
+                  color="indigo"
+                  size="md"
                   radius="xl"
-                  styles={{ input: { backgroundColor: "var(--card-bg)", border: "1.5px solid #e0e7ff" } }}
-                />
-                <Text size="xs" c="dimmed" ta="center" mt="xs">Supports: Inventory ID · Serial Number · Product Title · Organization · Deploy Reason</Text>
-              </Paper>
-            </Stack>
+                  fullWidth
+                  onClick={() => setShowImportSection((v) => !v)}
+                  leftSection={<IconUpload size={16} />}
+                  style={{ boxShadow: "var(--card-shadow)" }}
+                >
+                  {showImportSection ? "Hide Import" : "Import Inventory"}
+                </Button>
+                <Collapse in={showImportSection}>
+                  <Stack gap="md" mt="md">
+                    <GoogleSheetsConnector
+                      googleState={googleState}
+                      onSignIn={handleGoogleSignIn}
+                      onSignOut={handleGoogleSignOut}
+                      onSelectSpreadsheet={handleGoogleSelectSpreadsheet}
+                      onSelectTab={handleGoogleSelectTab}
+                      onLoadSheet={handleGoogleLoadSheet}
+                      onToggleSync={handleGoogleToggleSync}
+                      onExportToSheet={handleGoogleExportToSheet}
+                      onDisconnect={handleGoogleDisconnect}
+                      hasInventory={inventoryList.length > 0}
+                      foundCount={foundCount}
+                      totalCount={inventoryList.length}
+                    />
+                    <Divider label={<Text size="xs" c="dimmed" fw={500}>or</Text>} labelPosition="center" />
+                    <Paper radius="xl" p="lg" style={{ border: "1.5px dashed var(--item-border)", backgroundColor: "var(--section-bg)" }}>
+                      <Group gap="md" mb="sm">
+                        <ThemeIcon radius="xl" size={44} color="indigo" variant="light" style={{ flexShrink: 0 }}>
+                          <IconUpload size={20} />
+                        </ThemeIcon>
+                        <div>
+                          <Text fw={700} size="sm" style={{ color: "#3730a3" }}>Upload CSV File</Text>
+                          <Text size="xs" c="dimmed">CSV, TXT, or TSV — click to browse</Text>
+                        </div>
+                      </Group>
+                      <FileInput
+                        ref={fileInputRef as any}
+                        placeholder="Choose file…"
+                        accept=".csv,.CSV,.txt,.tsv,.tab"
+                        leftSection={<IconUpload size={15} />}
+                        onChange={onFileChange}
+                        radius="xl"
+                        styles={{ input: { backgroundColor: "var(--card-bg)", border: "1.5px solid #e0e7ff" } }}
+                      />
+                      <Text size="xs" c="dimmed" ta="center" mt="xs">Supports: Inventory ID · Serial Number · Product Title · Organization · Deploy Reason</Text>
+                    </Paper>
+                  </Stack>
+                </Collapse>
+              </>
+            ) : (
+              <>
+                <Divider my="xl" labelPosition="center" label={
+                  <Text size="xs" fw={700} tt="uppercase" style={{ color: "var(--divider-color)", letterSpacing: "0.08em" }}>Import Inventory</Text>
+                } />
+                <Stack gap="md">
+                  <GoogleSheetsConnector
+                    googleState={googleState}
+                    onSignIn={handleGoogleSignIn}
+                    onSignOut={handleGoogleSignOut}
+                    onSelectSpreadsheet={handleGoogleSelectSpreadsheet}
+                    onSelectTab={handleGoogleSelectTab}
+                    onLoadSheet={handleGoogleLoadSheet}
+                    onToggleSync={handleGoogleToggleSync}
+                    onExportToSheet={handleGoogleExportToSheet}
+                    onDisconnect={handleGoogleDisconnect}
+                    hasInventory={inventoryList.length > 0}
+                    foundCount={foundCount}
+                    totalCount={inventoryList.length}
+                  />
+                  <Divider label={<Text size="xs" c="dimmed" fw={500}>or</Text>} labelPosition="center" />
+                  <Paper radius="xl" p="lg" style={{ border: "1.5px dashed var(--item-border)", backgroundColor: "var(--section-bg)" }}>
+                    <Group gap="md" mb="sm">
+                      <ThemeIcon radius="xl" size={44} color="indigo" variant="light" style={{ flexShrink: 0 }}>
+                        <IconUpload size={20} />
+                      </ThemeIcon>
+                      <div>
+                        <Text fw={700} size="sm" style={{ color: "#3730a3" }}>Upload CSV File</Text>
+                        <Text size="xs" c="dimmed">CSV, TXT, or TSV — click to browse</Text>
+                      </div>
+                    </Group>
+                    <FileInput
+                      ref={fileInputRef as any}
+                      placeholder="Choose file…"
+                      accept=".csv,.CSV,.txt,.tsv,.tab"
+                      leftSection={<IconUpload size={15} />}
+                      onChange={onFileChange}
+                      radius="xl"
+                      styles={{ input: { backgroundColor: "var(--card-bg)", border: "1.5px solid #e0e7ff" } }}
+                    />
+                    <Text size="xs" c="dimmed" ta="center" mt="xs">Supports: Inventory ID · Serial Number · Product Title · Organization · Deploy Reason</Text>
+                  </Paper>
+                </Stack>
+              </>
+            )}
           </>
         )}
       </Card>
