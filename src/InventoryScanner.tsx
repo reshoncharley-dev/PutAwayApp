@@ -1539,8 +1539,6 @@ export default function InventoryScanner() {
             <Select label="Deploy Reason Filter" value={deployReasonFilter} onChange={(v) => v && setDeployReasonFilter(v)} data={deployReasonOptions} leftSection={<IconFilter size={15} />} radius="xl" />
             <Select label="Organization Filter" value={organizationFilter} onChange={(v) => v && setOrganizationFilter(v)} data={organizationOptions} leftSection={<IconFilter size={15} />} radius="xl" />
 
-            {lastScannedCode && <ScanResult scannedCode={lastScannedCode} found={lastScanFound} />}
-
             <SimpleGrid cols={2} spacing="sm">
               <Button leftSection={<IconDownload size={16} />} onClick={exportCSV} disabled={inventoryList.length === 0} variant="light" color="indigo" radius="xl">Export CSV</Button>
               <Button leftSection={<IconTrash size={16} />} variant="light" color="red" radius="xl" onClick={() => setShowResetConfirm(true)} disabled={inventoryList.length === 0}>Reset</Button>
@@ -1558,6 +1556,8 @@ export default function InventoryScanner() {
             >
               Start Pick Run — {unfoundCount} items
             </Button>
+
+            {lastScannedCode && <ScanResult scannedCode={lastScannedCode} found={lastScanFound} />}
 
             <Paper
               radius="xl"
