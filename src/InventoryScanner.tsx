@@ -735,7 +735,8 @@ const PickRunView: React.FC<{
   lastScanFound: boolean;
   notHereItems: Record<string, boolean>;
   onNotHere: (key: string, isNotHere: boolean, itemId: string) => void;
-}> = ({ pickRunData, inventoryList, detectedColumns, foundIdSet, deployReasonFilter, deployReasonOptions, onDeployReasonChange, onClose, lastScannedCode, lastScanFound, notHereItems, onNotHere }) => {
+  onScan: (code: string) => void;
+}> = ({ pickRunData, inventoryList, detectedColumns, foundIdSet, deployReasonFilter, deployReasonOptions, onDeployReasonChange, onClose, lastScannedCode, lastScanFound, notHereItems, onNotHere, onScan }) => {
   const [expandedZones, setExpandedZones] = useState<Record<string, boolean>>({}); // collapsed by default for performance
   const inventoryById = useMemo(() => { const map = new Map<string, InventoryItem>(); inventoryList.forEach((item) => map.set(item._id, item)); return map; }, [inventoryList]);
   const foundColumnName = detectedColumns.found || "Found";
@@ -855,6 +856,20 @@ const PickRunView: React.FC<{
           ))}
         </SimpleGrid>
       </Paper>
+
+      <TextInput
+        placeholder="Scan or type barcode here…"
+        leftSection={<IconSearch size={16} />}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            const val = e.currentTarget.value.trim();
+            if (val) { onScan(val); e.currentTarget.value = ""; }
+          }
+        }}
+        radius="xl"
+        size="md"
+        styles={{ input: { backgroundColor: "var(--card-bg)", border: "1.5px solid var(--item-border)" } }}
+      />
 
       {lastScannedCode && <ScanResult scannedCode={lastScannedCode} found={lastScanFound} />}
 
@@ -1526,7 +1541,7 @@ export default function InventoryScanner() {
 
         {inventoryList.length > 0 && pickRunMode && pickRunData && (
           <PickRunView
-            pickRunData={pickRunData} inventoryList={inventoryList} detectedColumns={detectedColumns} foundIdSet={deferredFoundIdSet} notFoundIdSet={deferredNotFoundIdSet} deployReasonFilter={deployReasonFilter} deployReasonOptions={deployReasonOptions} onDeployReasonChange={setDeployReasonFilter} onClose={() => setPickRunMode(false)} lastScannedCode={lastScannedCode} lastScanFound={lastScanFound} notHereItems={notHereItems}
+            pickRunData={pickRunData} inventoryList={inventoryList} detectedColumns={detectedColumns} foundIdSet={deferredFoundIdSet} notFoundIdSet={deferredNotFoundIdSet} deployReasonFilter={deployReasonFilter} deployReasonOptions={deployReasonOptions} onDeployReasonChange={setDeployReasonFilter} onClose={() => setPickRunMode(false)} lastScannedCode={lastScannedCode} lastScanFound={lastScanFound} notHereItems={notHereItems} onScan={processScannedCode}
             onNotHere={(key, isNotHere, itemId) => {
               setNotHereItems((prev) => { const next = { ...prev }; if (isNotHere) next[key] = true; else delete next[key]; return next; });
               if (itemId) setNotFoundIdSet((prev) => { const next = new Set(prev); if (isNotHere) next.add(itemId); else next.delete(itemId); return next; });
