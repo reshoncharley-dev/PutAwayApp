@@ -1,9 +1,6 @@
-import { Center, Title } from "@mantine/core";
+import "./index.css";
+import InventoryScanner from "./InventoryScanner";
 
 export default function App() {
-  return (
-    <Center mih="100vh">
-      <Title order={1}>Hello World</Title>
-    </Center>
-  );
+  return <InventoryScanner />;
 }

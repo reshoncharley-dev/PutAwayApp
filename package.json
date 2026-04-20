@@ -9,15 +9,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
     "@electric-sql/pglite": "^0.2.0",
-    "drizzle-orm": "^0.36.0",
     "@mantine/core": "^7.15.0",
-    "@mantine/hooks": "^7.15.0",
     "@mantine/dates": "^7.15.0",
+    "@mantine/hooks": "^7.15.0",
     "@tabler/icons-react": "^3.26.0",
-    "dayjs": "^1.11.0"
+    "@types/papaparse": "^5.5.2",
+    "dayjs": "^1.11.0",
+    "drizzle-orm": "^0.36.0",
+    "papaparse": "^5.5.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
