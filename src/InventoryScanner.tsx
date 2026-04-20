@@ -1557,6 +1557,20 @@ export default function InventoryScanner() {
               Start Pick Run — {unfoundCount} items
             </Button>
 
+            <TextInput
+              placeholder="Scan or type barcode here…"
+              leftSection={<IconSearch size={16} />}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  const val = e.currentTarget.value.trim();
+                  if (val) { processScannedCode(val); e.currentTarget.value = ""; }
+                }
+              }}
+              radius="xl"
+              size="md"
+              styles={{ input: { backgroundColor: "var(--card-bg)", border: "1.5px solid var(--item-border)" } }}
+            />
+
             {lastScannedCode && <ScanResult scannedCode={lastScannedCode} found={lastScanFound} />}
 
             <Paper
