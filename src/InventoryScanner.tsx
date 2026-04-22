@@ -154,6 +154,9 @@ const clearStorage = (): void => { try { localStorage.removeItem(STORAGE_KEY); }
 
 const normalize = (str: unknown): string => (str as string)?.toString().trim().toLowerCase() || "";
 const safeValue = (item: Record<string, unknown>, columnType: string): string => getColumnValue(item, columnType) || "N/A";
+const formatDeployReason = (value: unknown): string => { if (!value) return "N/A"; return (value as string).toString().trim(); };
+const formatDeployStatus = (value: unknown): string => { if (!value) return "N/A"; return (value as string).toString().trim(); };
+const formatCategory = (value: unknown): string => { if (!value) return "N/A"; return (value as string).toString().trim(); };
 
 
 
@@ -401,7 +404,7 @@ const GoogleSheetsConnector: React.FC<{
 // ============================================================
 // PICK RUN ZONE VIRTUALIZED LIST
 // ============================================================
-const PICK_ZONE_ROW_HEIGHT = 72;
+const PICK_ZONE_ROW_HEIGHT = 108;
 const PICK_ZONE_OVERSCAN = 6;
 
 const VirtualizedPickItems = memo<{
@@ -472,7 +475,12 @@ const VirtualizedPickItems = memo<{
           const isFound = isFoundItem(item);
           const isNotHere = item._notHere;
           const isQueued = isQueuedItem(item);
+          const deployReason = getColumnValue(item, "deployReason");
+          const deployStatus = getColumnValue(item, "deployStatus");
           const organization = getColumnValue(item, "organization");
+          const category = getColumnValue(item, "category");
+          const drNorm = deployReason?.toString().trim().toUpperCase() || "";
+          const isRecycle = drNorm === "RECYCLING_REQUESTED";
           const serial = safeValue(item, "serialNumber");
           const inventoryId = safeValue(item, "inventoryId");
           const bgColor = isFound ? "var(--item-found-bg)" : isNotHere ? "var(--item-notfound-bg)" : "var(--item-bg)";
@@ -486,15 +494,15 @@ const VirtualizedPickItems = memo<{
           return (
             <Paper
               key={item._pickItemKey || item._id}
-              p="xs"
-              radius="md"
+              p="md"
+              radius="lg"
               withBorder
               style={{
                 position: "relative",
                 overflow: "hidden",
                 backgroundColor: bgColor,
                 opacity: isFound || isNotHere ? 0.75 : 1,
-                minHeight: PICK_ZONE_ROW_HEIGHT - 8,
+                minHeight: PICK_ZONE_ROW_HEIGHT - 6,
                 boxShadow,
                 transition: "opacity 0.2s",
                 borderColor: "rgba(148,163,184,0.25)",
@@ -511,48 +519,67 @@ const VirtualizedPickItems = memo<{
                 }}
               />
 
-              <Group gap="xs" align="center" wrap="nowrap" style={{ paddingLeft: 6 }}>
-                <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
-                  <Text size="xs" fw={700} truncate style={{ color: "var(--text-primary)", textDecoration: isFound || isNotHere ? "line-through" : "none" }}>
+              <Group gap="sm" align="flex-start" wrap="nowrap" style={{ paddingLeft: 8 }}>
+                <Stack gap={6} style={{ flex: 1, minWidth: 0 }}>
+                  <Text size="sm" fw={700} style={{ color: "var(--text-primary)", wordBreak: "break-word", textDecoration: isFound || isNotHere ? "line-through" : "none" }}>
                     {safeValue(item, "productTitle")}
                   </Text>
-                  <Group gap={4} mt={2} wrap="nowrap" style={{ overflow: "hidden" }}>
-                    <Text size="xs" ff="monospace" c="dimmed" truncate style={{ flexShrink: 1, minWidth: 0 }}>
-                      {serial}{inventoryId && serial ? " · " : ""}{inventoryId && `ID:${inventoryId}`}
-                    </Text>
+
+                  <Group gap={6} style={{ flexWrap: "wrap" }}>
+                    <Badge size="sm" variant="light" color="indigo" radius="xl" ff="monospace">
+                      SN: {serial}
+                    </Badge>
+                    <Badge size="sm" variant="light" color="lime" radius="xl" ff="monospace">
+                      ID: {inventoryId}
+                    </Badge>
                     {organization && organization !== "N/A" && (
-                      <Badge size="xs" variant="light" color="orange" radius="xl" style={{ flexShrink: 0 }}>
+                      <Badge size="sm" variant="light" color="orange" radius="xl">
                         {organization}
                       </Badge>
                     )}
+                    {category && category !== "N/A" && (
+                      <Badge size="sm" variant="light" color="pink" radius="xl">
+                        {formatCategory(category)}
+                      </Badge>
+                    )}
+                    {deployReason && deployReason !== "N/A" && (
+                      <Badge size="sm" variant="light" color={isRecycle ? "yellow" : "red"} radius="xl">
+                        {formatDeployReason(deployReason)}
+                      </Badge>
+                    )}
+                    {deployStatus && deployStatus !== "N/A" && (
+                      <Badge size="sm" variant="light" color={deployStatus.toString().toUpperCase() === "AVAILABLE" ? "teal" : "violet"} radius="xl">
+                        {formatDeployStatus(deployStatus)}
+                      </Badge>
+                    )}
                   </Group>
-                </div>
+                </Stack>
 
-                <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                <Stack gap={4} align="flex-end" style={{ flexShrink: 0 }}>
                   <Badge
-                    size="xs"
+                    size="sm"
                     radius="xl"
                     variant={isFound || isNotHere ? "filled" : "light"}
                     color={isFound ? "green" : isNotHere ? "red" : isQueued ? "blue" : "gray"}
-                    leftSection={isFound ? <IconCheck size={10} /> : isNotHere ? <IconX size={10} /> : <IconPackage size={10} />}
+                    leftSection={isFound ? <IconCheck size={12} /> : isNotHere ? <IconX size={12} /> : <IconPackage size={12} />}
                   >
-                    {isFound ? "Done" : isNotHere ? "N/A" : isQueued ? "Queued" : "Pending"}
+                    {isFound ? "Put Away" : isNotHere ? "Not Here" : isQueued ? "Queued" : "To Put Away"}
                   </Badge>
 
                   {!isFound && !isNotHere && isQueued && (
                     <Button
-                      size="md"
+                      size="lg"
                       color="green"
                       radius="xl"
                       fw={700}
                       onClick={(e) => { e.stopPropagation(); onPutAway(item); }}
-                      style={{ flexShrink: 0, minWidth: 110, fontSize: 14, padding: "8px 16px", boxShadow: "0 4px 12px rgba(22,163,74,0.4)" }}
-                      leftSection={<IconCheck size={16} />}
+                      style={{ flexShrink: 0, minWidth: 130, fontSize: 15, padding: "10px 20px", boxShadow: "0 4px 12px rgba(22,163,74,0.4)" }}
+                      leftSection={<IconCheck size={18} />}
                     >
                       Put Away
                     </Button>
                   )}
-                </div>
+                </Stack>
               </Group>
             </Paper>
           );
