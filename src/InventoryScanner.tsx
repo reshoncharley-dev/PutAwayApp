@@ -519,49 +519,14 @@ const VirtualizedPickItems = memo<{
                 }}
               />
 
-              <Group gap="sm" align="flex-start" wrap="nowrap" style={{ paddingLeft: 8 }}>
-                <Stack gap={6} style={{ flex: 1, minWidth: 0 }}>
-                  <Text size="sm" fw={700} style={{ color: "var(--text-primary)", wordBreak: "break-word", textDecoration: isFound || isNotHere ? "line-through" : "none" }}>
-                    {safeValue(item, "productTitle")}
-                  </Text>
-
-                  <Group gap={6} style={{ flexWrap: "wrap" }}>
-                    <Badge size="sm" variant="light" color="indigo" radius="xl" ff="monospace">
-                      SN: {serial}
-                    </Badge>
-                    <Badge size="sm" variant="light" color="lime" radius="xl" ff="monospace">
-                      ID: {inventoryId}
-                    </Badge>
-                    {organization && organization !== "N/A" && (
-                      <Badge size="sm" variant="light" color="orange" radius="xl">
-                        {organization}
-                      </Badge>
-                    )}
-                    {category && category !== "N/A" && (
-                      <Badge size="sm" variant="light" color="pink" radius="xl">
-                        {formatCategory(category)}
-                      </Badge>
-                    )}
-                    {deployReason && deployReason !== "N/A" && (
-                      <Badge size="sm" variant="light" color={isRecycle ? "yellow" : "red"} radius="xl">
-                        {formatDeployReason(deployReason)}
-                      </Badge>
-                    )}
-                    {deployStatus && deployStatus !== "N/A" && (
-                      <Badge size="sm" variant="light" color={deployStatus.toString().toUpperCase() === "AVAILABLE" ? "teal" : "violet"} radius="xl">
-                        {formatDeployStatus(deployStatus)}
-                      </Badge>
-                    )}
-                  </Group>
-                </Stack>
-
-                <Stack gap={4} align="flex-end" style={{ flexShrink: 0 }}>
+              <Stack gap={6} style={{ paddingLeft: 8 }}>
+                <Group gap="xs" justify="space-between" align="center" wrap="nowrap">
                   <Badge
-                    size="sm"
+                    size="lg"
                     radius="xl"
                     variant={isFound || isNotHere ? "filled" : "light"}
                     color={isFound ? "green" : isNotHere ? "red" : isQueued ? "blue" : "gray"}
-                    leftSection={isFound ? <IconCheck size={12} /> : isNotHere ? <IconX size={12} /> : <IconPackage size={12} />}
+                    leftSection={isFound ? <IconCheck size={14} /> : isNotHere ? <IconX size={14} /> : <IconPackage size={14} />}
                   >
                     {isFound ? "Put Away" : isNotHere ? "Not Here" : isQueued ? "Queued" : "To Put Away"}
                   </Badge>
@@ -579,8 +544,41 @@ const VirtualizedPickItems = memo<{
                       Put Away
                     </Button>
                   )}
-                </Stack>
-              </Group>
+                </Group>
+
+                <Text size="sm" fw={700} style={{ color: "var(--text-primary)", textDecoration: isFound || isNotHere ? "line-through" : "none" }}>
+                  {safeValue(item, "productTitle")}
+                </Text>
+
+                <Group gap={6} style={{ flexWrap: "wrap" }}>
+                  <Badge size="sm" variant="light" color="indigo" radius="xl" ff="monospace">
+                    SN: {serial}
+                  </Badge>
+                  <Badge size="sm" variant="light" color="lime" radius="xl" ff="monospace">
+                    ID: {inventoryId}
+                  </Badge>
+                  {organization && organization !== "N/A" && (
+                    <Badge size="sm" variant="light" color="orange" radius="xl">
+                      {organization}
+                    </Badge>
+                  )}
+                  {category && category !== "N/A" && (
+                    <Badge size="sm" variant="light" color="pink" radius="xl">
+                      {formatCategory(category)}
+                    </Badge>
+                  )}
+                  {deployReason && deployReason !== "N/A" && (
+                    <Badge size="sm" variant="light" color={isRecycle ? "yellow" : "red"} radius="xl">
+                      {formatDeployReason(deployReason)}
+                    </Badge>
+                  )}
+                  {deployStatus && deployStatus !== "N/A" && (
+                    <Badge size="sm" variant="light" color={deployStatus.toString().toUpperCase() === "AVAILABLE" ? "teal" : "violet"} radius="xl">
+                      {formatDeployStatus(deployStatus)}
+                    </Badge>
+                  )}
+                </Group>
+              </Stack>
             </Paper>
           );
         })}
