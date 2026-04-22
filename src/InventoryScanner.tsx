@@ -731,14 +731,28 @@ const PickRunView: React.FC<{
 
         </Group>
         <Progress value={pct} size={6} radius="xl" mb="md" color="orange" styles={{ root: { backgroundColor: "rgba(249,115,22,0.15)" } }} />
-        <SimpleGrid cols={3} spacing="xs">
+        <SimpleGrid cols={{ base: 2, sm: 2 }} spacing="sm">
           {[
             { value: totalFound, label: "Put Away", color: "#16a34a" },
             { value: totalRemaining + unmappedUnfound.length, label: "Remaining", color: "var(--text-primary)" },
           ].map((s) => (
-            <Paper key={s.label} p="xs" radius="lg" withBorder style={{ backgroundColor: "rgba(249,115,22,0.06)", borderColor: "rgba(249,115,22,0.15)", textAlign: "center" }}>
+            <Paper
+              key={s.label}
+              p="sm"
+              radius="lg"
+              withBorder
+              style={{
+                backgroundColor: "rgba(249,115,22,0.06)",
+                borderColor: "rgba(249,115,22,0.15)",
+                textAlign: "center",
+                minHeight: 84,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+              }}
+            >
               <Text size="xl" fw={900} style={{ color: s.color, lineHeight: 1.1 }}>{s.value}</Text>
-              <Text size="xs" fw={500} style={{ color: "var(--text-muted)", marginTop: 2 }}>{s.label}</Text>
+              <Text size="xs" fw={600} style={{ color: "var(--text-muted)", marginTop: 4 }}>{s.label}</Text>
             </Paper>
           ))}
         </SimpleGrid>
@@ -1389,8 +1403,11 @@ export default function InventoryScanner() {
 
 
   useEffect(() => {
-    if (!pickRunMode) setPickRunData(null);
-  }, [pickRunMode]);
+    // Only clear run data when there is no cart loaded.
+    // During initial cart load we briefly toggle pickRunMode false before auto-generating,
+    // and clearing here could race and leave the UI stuck on the retry screen.
+    if (!pickRunMode && inventoryList.length === 0) setPickRunData(null);
+  }, [pickRunMode, inventoryList.length]);
 
   return (
     <Box maw={700} mx="auto" p="md" pb="xl" style={{ minHeight: "100vh" }}>
