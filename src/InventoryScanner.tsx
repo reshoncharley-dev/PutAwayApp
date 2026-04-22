@@ -154,7 +154,7 @@ const clearStorage = (): void => { try { localStorage.removeItem(STORAGE_KEY); }
 
 const normalize = (str: unknown): string => (str as string)?.toString().trim().toLowerCase() || "";
 const safeValue = (item: Record<string, unknown>, columnType: string): string => getColumnValue(item, columnType) || "N/A";
-const formatDeployReason = (value: unknown): string => { if (!value) return "N/A"; return (value as string).toString().trim(); };
+const _formatDeployReason = (value: unknown): string => { if (!value) return "N/A"; return (value as string).toString().trim(); }; void _formatDeployReason;
 const formatDeployStatus = (value: unknown): string => { if (!value) return "N/A"; return (value as string).toString().trim(); };
 const formatCategory = (value: unknown): string => { if (!value) return "N/A"; return (value as string).toString().trim(); };
 
@@ -404,7 +404,7 @@ const GoogleSheetsConnector: React.FC<{
 // ============================================================
 // PICK RUN ZONE VIRTUALIZED LIST
 // ============================================================
-const PICK_ZONE_ROW_HEIGHT = 108;
+const PICK_ZONE_ROW_HEIGHT = 82;
 const PICK_ZONE_OVERSCAN = 6;
 
 const VirtualizedPickItems = memo<{
@@ -479,9 +479,9 @@ const VirtualizedPickItems = memo<{
           const organization = getColumnValue(item, "organization");
           const category = getColumnValue(item, "category");
           const drNorm = deployReason?.toString().trim().toUpperCase() || "";
-          const isRecycle = drNorm === "RECYCLING_REQUESTED";
+          void drNorm;
           const serial = safeValue(item, "serialNumber");
-          const inventoryId = safeValue(item, "inventoryId");
+          void safeValue(item, "inventoryId");
           const bgColor = isFound ? "var(--item-found-bg)" : isNotHere ? "var(--item-notfound-bg)" : "var(--item-bg)";
           const accentColor = isFound ? "#16a34a" : isNotHere ? "#dc2626" : "#64748b";
           const boxShadow = isFound
@@ -493,8 +493,8 @@ const VirtualizedPickItems = memo<{
           return (
             <Paper
               key={item._pickItemKey || item._id}
-              p="md"
-              radius="lg"
+              p="xs"
+              radius="md"
               withBorder
               style={{
                 position: "relative",
@@ -518,10 +518,10 @@ const VirtualizedPickItems = memo<{
                 }}
               />
 
-              <Stack gap={6} style={{ paddingLeft: 8 }}>
+              <Stack gap={2} style={{ paddingLeft: 8 }}>
                 <Group gap="xs" justify="space-between" align="center" wrap="nowrap">
                   <Badge
-                    size="lg"
+                    size="sm"
                     radius="xl"
                     variant={isFound || isNotHere ? "filled" : "light"}
                     color={isFound ? "green" : isNotHere ? "red" : isQueued ? "blue" : "gray"}
@@ -533,34 +533,26 @@ const VirtualizedPickItems = memo<{
 
                 </Group>
 
-                <Text size="sm" fw={700} style={{ color: "var(--text-primary)", textDecoration: isFound || isNotHere ? "line-through" : "none" }}>
+                <Text size="xs" fw={600} truncate style={{ color: "var(--text-primary)", textDecoration: isFound || isNotHere ? "line-through" : "none", maxWidth: "100%" }}>
                   {safeValue(item, "productTitle")}
                 </Text>
 
-                <Group gap={6} style={{ flexWrap: "wrap" }}>
-                  <Badge size="sm" variant="light" color="indigo" radius="xl" ff="monospace">
-                    SN: {serial}
-                  </Badge>
-                  <Badge size="sm" variant="light" color="lime" radius="xl" ff="monospace">
-                    ID: {inventoryId}
+                <Group gap={4} style={{ flexWrap: "wrap" }}>
+                  <Badge size="xs" variant="light" color="indigo" radius="xl" ff="monospace">
+                    {serial}
                   </Badge>
                   {organization && organization !== "N/A" && (
-                    <Badge size="sm" variant="light" color="orange" radius="xl">
+                    <Badge size="xs" variant="light" color="orange" radius="xl">
                       {organization}
                     </Badge>
                   )}
                   {category && category !== "N/A" && (
-                    <Badge size="sm" variant="light" color="pink" radius="xl">
+                    <Badge size="xs" variant="light" color="pink" radius="xl">
                       {formatCategory(category)}
                     </Badge>
                   )}
-                  {deployReason && deployReason !== "N/A" && (
-                    <Badge size="sm" variant="light" color={isRecycle ? "yellow" : "red"} radius="xl">
-                      {formatDeployReason(deployReason)}
-                    </Badge>
-                  )}
                   {deployStatus && deployStatus !== "N/A" && (
-                    <Badge size="sm" variant="light" color={deployStatus.toString().toUpperCase() === "AVAILABLE" ? "teal" : "violet"} radius="xl">
+                    <Badge size="xs" variant="light" color={deployStatus.toString().toUpperCase() === "AVAILABLE" ? "teal" : "violet"} radius="xl">
                       {formatDeployStatus(deployStatus)}
                     </Badge>
                   )}
