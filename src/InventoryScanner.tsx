@@ -598,11 +598,13 @@ const VirtualizedPickItems = memo<{
 
                   {!isFound && !isNotHere && isQueued && (
                     <Button
-                      size="compact-xs"
+                      size="lg"
                       color="green"
                       radius="xl"
+                      fw={700}
                       onClick={(e) => { e.stopPropagation(); onPutAway(item); }}
-                      style={{ flexShrink: 0 }}
+                      style={{ flexShrink: 0, minWidth: 140, fontSize: 16, padding: "10px 24px", boxShadow: "0 4px 12px rgba(22,163,74,0.4)" }}
+                      leftSection={<IconCheck size={20} />}
                     >
                       Put Away
                     </Button>
@@ -1122,6 +1124,15 @@ export default function InventoryScanner() {
     const isAlreadyQueued = queuedIdSetRef.current.has(foundItem._id);
 
     if (pickRunModeRef.current) {
+      // Keep already-queued/already-put-away items green when re-scanned.
+      if (isAlreadyQueued || isAlreadyFound) {
+        setLastScannedCode(decodedText);
+        setLastScanFound(true);
+        setLastScanOnCart(true);
+        triggerHapticFeedback();
+        return;
+      }
+
       const run = pickRunDataRef.current;
       if (!run) {
         setLastScannedCode(decodedText);
