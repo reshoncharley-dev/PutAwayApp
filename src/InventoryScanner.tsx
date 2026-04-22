@@ -411,10 +411,9 @@ const VirtualizedPickItems = memo<{
   items: PickItem[];
   isFoundItem: (item: Record<string, unknown>) => boolean;
   isQueuedItem: (item: Record<string, unknown>) => boolean;
-  onPutAway: (item: PickItem) => void;
   activeOrganization?: string;
   showOnlyActiveOrganization?: boolean;
-}>(({ items, isFoundItem, isQueuedItem, onPutAway, activeOrganization, showOnlyActiveOrganization = false }) => {
+}>(({ items, isFoundItem, isQueuedItem, activeOrganization, showOnlyActiveOrganization = false }) => {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(420);
@@ -531,19 +530,7 @@ const VirtualizedPickItems = memo<{
                     {isFound ? "Put Away" : isNotHere ? "Not Here" : isQueued ? "Queued" : "To Put Away"}
                   </Badge>
 
-                  {!isFound && !isNotHere && isQueued && (
-                    <Button
-                      size="lg"
-                      color="green"
-                      radius="xl"
-                      fw={700}
-                      onClick={(e) => { e.stopPropagation(); onPutAway(item); }}
-                      style={{ flexShrink: 0, minWidth: 130, fontSize: 15, padding: "10px 20px", boxShadow: "0 4px 12px rgba(22,163,74,0.4)" }}
-                      leftSection={<IconCheck size={18} />}
-                    >
-                      Put Away
-                    </Button>
-                  )}
+
                 </Group>
 
                 <Text size="sm" fw={700} style={{ color: "var(--text-primary)", textDecoration: isFound || isNotHere ? "line-through" : "none" }}>
@@ -767,6 +754,17 @@ const PickRunView: React.FC<{
         const scannedCount = zone.items.reduce((acc, item) => acc + (!item._notHere && isFoundItem(item) ? 1 : 0), 0);
         const remainingCount = Math.max(0, zone.items.length - scannedCount - notFoundCount);
 
+        // Compute org-level queued status for this zone
+        const orgItemsInZone = isActiveZone && activeOrganization
+          ? zone.items.filter((item) => {
+              const org = (getColumnValue(item, "organization") || "").toString().trim().toLowerCase();
+              return org === activeOrganization.trim().toLowerCase();
+            })
+          : [];
+        const orgUnfinalized = orgItemsInZone.filter((item) => !isFoundItem(item) && !item._notHere);
+        const orgAllQueued = orgUnfinalized.length > 0 && orgUnfinalized.every((item) => queuedIdSet.has(item._id));
+        const orgQueuedIds = orgUnfinalized.filter((item) => queuedIdSet.has(item._id)).map((item) => item._id);
+
         const borderColor = allDone
           ? "#16a34a"
           : isActiveZone ? "rgba(99,162,255,0.5)" : "rgba(148,163,184,0.25)";
@@ -798,10 +796,26 @@ const PickRunView: React.FC<{
                 {allDone ? <IconCheck size={14} /> : <Text size="xs" fw={800} style={{ color: isActiveZone ? undefined : "var(--text-secondary)" }}>{zone.order}</Text>}
               </ThemeIcon>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <Group gap={4} align="center" wrap="nowrap">
+                <Group gap={4} align="center" wrap="wrap">
                   <Text size="xs" fw={700} truncate c={allDone ? "green" : undefined} td={allDone ? "line-through" : undefined}>{zone.zoneName}</Text>
                   {isActiveZone && <Badge size="xs" color="gray" variant="light" radius="xl" style={{ flexShrink: 0 }}>Active</Badge>}
                   {isActiveZone && activeOrganization && <Text size="xs" fw={700} truncate c={allDone ? "green" : undefined}>→ {activeOrganization}</Text>}
+                  {isActiveZone && orgAllQueued && (
+                    <Button
+                      size="lg"
+                      color="green"
+                      radius="xl"
+                      fw={700}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        orgQueuedIds.forEach((id) => onPutAway(id));
+                      }}
+                      style={{ flexShrink: 0, minWidth: 160, fontSize: 16, padding: "12px 24px", boxShadow: "0 4px 14px rgba(22,163,74,0.45)" }}
+                      leftSection={<IconCheck size={20} />}
+                    >
+                      Put Away ({orgQueuedIds.length})
+                    </Button>
+                  )}
                 </Group>
                 <Group gap={6} mt={1}>
                   {scannedCount > 0 && <Text size="xs" style={{ color: "#16a34a" }} fw={600}>{scannedCount}/{zone.items.length}</Text>}
@@ -820,7 +834,6 @@ const PickRunView: React.FC<{
                     items={zone.items}
                     isFoundItem={isFoundItem}
                     isQueuedItem={(item) => queuedIdSet.has(item._id as string)}
-                    onPutAway={(item) => onPutAway(item._id)}
                     activeOrganization={isActiveZone ? activeOrganization : undefined}
                     showOnlyActiveOrganization={isActiveZone && !!activeOrganization}
                   />
