@@ -796,37 +796,43 @@ const PickRunView: React.FC<{
                 {allDone ? <IconCheck size={14} /> : <Text size="xs" fw={800} style={{ color: isActiveZone ? undefined : "var(--text-secondary)" }}>{zone.order}</Text>}
               </ThemeIcon>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <Group gap={4} align="center" wrap="wrap">
+                <Group gap={6} align="center">
                   <Text size="xs" fw={700} truncate c={allDone ? "green" : undefined} td={allDone ? "line-through" : undefined}>{zone.zoneName}</Text>
                   {isActiveZone && <Badge size="xs" color="gray" variant="light" radius="xl" style={{ flexShrink: 0 }}>Active</Badge>}
                   {isActiveZone && activeOrganization && <Text size="xs" fw={700} truncate c={allDone ? "green" : undefined}>→ {activeOrganization}</Text>}
-                  {isActiveZone && orgAllQueued && (
-                    <Button
-                      size="lg"
-                      color="green"
-                      radius="xl"
-                      fw={700}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        orgQueuedIds.forEach((id) => onPutAway(id));
-                      }}
-                      style={{ flexShrink: 0, minWidth: 160, fontSize: 16, padding: "12px 24px", boxShadow: "0 4px 14px rgba(22,163,74,0.45)" }}
-                      leftSection={<IconCheck size={20} />}
-                    >
-                      Put Away ({orgQueuedIds.length})
-                    </Button>
-                  )}
-                </Group>
-                <Group gap={6} mt={1}>
-                  {scannedCount > 0 && <Text size="xs" style={{ color: "#16a34a" }} fw={600}>{scannedCount}/{zone.items.length}</Text>}
-                  {remainingCount > 0 && <Text size="xs" c="dimmed">{remainingCount} left</Text>}
-                  {allDone && <Text size="xs" style={{ color: "#16a34a" }} fw={600}>✓</Text>}
+                  {scannedCount > 0 && <Badge size="xs" color="green" variant="light" radius="xl">{scannedCount}/{zone.items.length}</Badge>}
+                  {remainingCount > 0 && !allDone && <Badge size="xs" color="gray" variant="light" radius="xl">{remainingCount} left</Badge>}
+                  {allDone && <Badge size="xs" color="green" variant="filled" radius="xl">✓ Done</Badge>}
                 </Group>
               </div>
               {canExpand && (
                 <IconChevronDown size={16} style={{ color: "var(--text-muted)", transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }} />
               )}
             </Group>
+            {isActiveZone && orgAllQueued && (
+              <Box p="sm" pt={0}>
+                <Button
+                  fullWidth
+                  size="xl"
+                  color="green"
+                  radius="lg"
+                  fw={800}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    orgQueuedIds.forEach((id) => onPutAway(id));
+                  }}
+                  style={{
+                    fontSize: 18,
+                    height: 56,
+                    boxShadow: "0 4px 20px rgba(22,163,74,0.5)",
+                    letterSpacing: 0.5,
+                  }}
+                  leftSection={<IconCheck size={24} />}
+                >
+                  Put Away {activeOrganization} ({orgQueuedIds.length})
+                </Button>
+              </Box>
+            )}
             <Collapse in={canExpand && isExpanded}>
               {canExpand && isExpanded && (
                 <Box style={{ borderTop: `1px solid ${borderColor}` }}>
