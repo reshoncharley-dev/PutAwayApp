@@ -214,6 +214,7 @@ const useInventorySearch = (inventoryList: InventoryItem[]) => {
 // ============================================================
 
 const ScanResult: React.FC<{ scannedCode: string; found: boolean; scannedItem?: InventoryItem | null; queued?: boolean }> = ({ scannedCode, found, scannedItem, queued = false }) => {
+  void queued;
   if (!scannedCode) return null;
   const scheme = useComputedColorScheme("light");
   const isDark = scheme === "dark";
