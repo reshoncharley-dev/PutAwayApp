@@ -481,7 +481,7 @@ const VirtualizedPickItems = memo<{
           const drNorm = deployReason?.toString().trim().toUpperCase() || "";
           void drNorm;
           const serial = safeValue(item, "serialNumber");
-          void safeValue(item, "inventoryId");
+          const inventoryId = safeValue(item, "inventoryId");
           const bgColor = isFound ? "var(--item-found-bg)" : isNotHere ? "var(--item-notfound-bg)" : "var(--item-bg)";
           const accentColor = isFound ? "#16a34a" : isNotHere ? "#dc2626" : "#64748b";
           const boxShadow = isFound
@@ -539,8 +539,13 @@ const VirtualizedPickItems = memo<{
 
                 <Group gap={4} style={{ flexWrap: "wrap" }}>
                   <Badge size="xs" variant="light" color="indigo" radius="xl" ff="monospace">
-                    {serial}
+                    SN: {serial}
                   </Badge>
+                  {inventoryId && inventoryId !== "N/A" && (
+                    <Badge size="xs" variant="light" color="lime" radius="xl" ff="monospace">
+                      ID: {inventoryId}
+                    </Badge>
+                  )}
                   {organization && organization !== "N/A" && (
                     <Badge size="xs" variant="light" color="orange" radius="xl">
                       {organization}
