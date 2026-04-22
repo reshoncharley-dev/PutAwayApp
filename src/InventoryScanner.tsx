@@ -155,18 +155,7 @@ const clearStorage = (): void => { try { localStorage.removeItem(STORAGE_KEY); }
 const normalize = (str: unknown): string => (str as string)?.toString().trim().toLowerCase() || "";
 const safeValue = (item: Record<string, unknown>, columnType: string): string => getColumnValue(item, columnType) || "N/A";
 
-const formatDeployReason = (value: unknown): string => {
-  if (!value) return "N/A";
-  return (value as string).toString().trim();
-};
-const formatDeployStatus = (value: unknown): string => {
-  if (!value) return "N/A";
-  return (value as string).toString().trim();
-};
-const formatCategory = (value: unknown): string => {
-  if (!value) return "N/A";
-  return (value as string).toString().trim();
-};
+
 
 const triggerHapticFeedback = (): void => { if ("vibrate" in navigator) navigator.vibrate(VIBRATE_DURATION); };
 const parseBoolean = (value: unknown): boolean => { if (typeof value === "boolean") return value; if (typeof value === "string") { const n = value.toLowerCase().trim(); return n === "true" || n === "1" || n === "yes"; } return false; };
@@ -197,12 +186,8 @@ const ScanResult: React.FC<{ scannedCode: string; found: boolean; onCart: boolea
   if (!scannedCode) return null;
   const scheme = useComputedColorScheme("light");
   const isDark = scheme === "dark";
-  const deployReason = scannedItem ? getColumnValue(scannedItem, "deployReason") : null;
-  const deployStatus = scannedItem ? getColumnValue(scannedItem, "deployStatus") : null;
   const productTitle = scannedItem ? getColumnValue(scannedItem, "productTitle") : null;
   const organization = scannedItem ? getColumnValue(scannedItem, "organization") : null;
-  const drNorm = deployReason?.toString().trim().toUpperCase() || "";
-  const isRecycle = drNorm === "RECYCLING_REQUESTED";
   const isWaiting = onCart && !found;
   const bg = isWaiting
     ? (isDark ? "rgba(234,179,8,0.2)" : "linear-gradient(135deg, #fef9c3 0%, #fde68a 100%)")
@@ -222,63 +207,41 @@ const ScanResult: React.FC<{ scannedCode: string; found: boolean; onCart: boolea
 
   return (
     <Paper
-      radius="xl"
-      p="lg"
-      mb="sm"
+      radius="lg"
+      p="sm"
+      mb="xs"
       className="scan-result-enter"
       style={{
         background: bg,
         border: `2px solid ${isWaiting ? "#eab308" : onCart ? "#16a34a" : "#dc2626"}`,
       }}
     >
-      <Group gap="md" align="center">
+      <Group gap="sm" align="center" wrap="nowrap">
         <ThemeIcon
           radius="xl"
-          size={48}
+          size={36}
           color={isWaiting ? "yellow" : onCart ? "green" : "red"}
           variant={isDark ? "light" : "filled"}
-          style={{
-            flexShrink: 0,
-            boxShadow: isWaiting
-              ? "0 4px 14px rgba(234,179,8,0.35)"
-              : onCart
-                ? "0 4px 14px rgba(22,163,74,0.35)"
-                : "0 4px 14px rgba(220,38,38,0.35)",
-          }}
+          style={{ flexShrink: 0 }}
         >
-          {isWaiting ? <IconAlertTriangle size={24} /> : onCart ? <IconCheck size={24} /> : <IconX size={24} />}
+          {isWaiting ? <IconAlertTriangle size={18} /> : onCart ? <IconCheck size={18} /> : <IconX size={18} />}
         </ThemeIcon>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <Group gap="xs" align="center" mb={2}>
-            <Text fw={800} ff="monospace" size="lg" style={{ color: textColor }}>{scannedCode}</Text>
-            <Badge color={isWaiting ? "yellow" : onCart ? "green" : "red"} variant="filled" size="sm" radius="xl">{onCart ? "✓ On Put Away Cart" : "✗ Not On Put Away Cart"}</Badge>
+        <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+          <Group gap={6} align="center" wrap="nowrap">
+            <Text fw={800} ff="monospace" size="sm" style={{ color: textColor, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{scannedCode}</Text>
+            <Badge color={isWaiting ? "yellow" : onCart ? "green" : "red"} variant="filled" size="xs" radius="xl" style={{ flexShrink: 0 }}>
+              {onCart ? (found ? "Queued" : "On Cart") : "Not On Cart"}
+            </Badge>
             {onCart && !found && (
-              <Badge color="yellow" variant="light" size="sm" radius="xl">Waiting / Not current top item</Badge>
-            )}
-            {onCart && found && (
-              <Badge color="blue" variant="light" size="sm" radius="xl">Queued</Badge>
+              <Badge color="yellow" variant="light" size="xs" radius="xl" style={{ flexShrink: 0 }}>Waiting</Badge>
             )}
           </Group>
           {productTitle && productTitle !== "N/A" && (
-            <Text size="sm" fw={500} style={{ color: subColor }} truncate>{productTitle}</Text>
+            <Text size="xs" fw={500} style={{ color: subColor, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{productTitle}</Text>
           )}
           {(organization && organization !== "N/A") && (
             <Text size="xs" style={{ color: textColor, opacity: 0.75 }}>{organization}</Text>
           )}
-          {(deployReason && deployReason !== "N/A") || (deployStatus && deployStatus !== "N/A") ? (
-            <Group gap={4} mt={4}>
-              {deployReason && deployReason !== "N/A" && (
-                <Badge size="xs" color={isRecycle ? "yellow" : "red"} variant="light" radius="xl">
-                  {formatDeployReason(deployReason)}
-                </Badge>
-              )}
-              {deployStatus && deployStatus !== "N/A" && (
-                <Badge size="xs" color={deployStatus.toString().toUpperCase() === "AVAILABLE" ? "teal" : "violet"} variant="light" radius="xl">
-                  {formatDeployStatus(deployStatus)}
-                </Badge>
-              )}
-            </Group>
-          ) : null}
         </div>
       </Group>
     </Paper>
@@ -438,7 +401,7 @@ const GoogleSheetsConnector: React.FC<{
 // ============================================================
 // PICK RUN ZONE VIRTUALIZED LIST
 // ============================================================
-const PICK_ZONE_ROW_HEIGHT = 108;
+const PICK_ZONE_ROW_HEIGHT = 72;
 const PICK_ZONE_OVERSCAN = 6;
 
 const VirtualizedPickItems = memo<{
@@ -509,12 +472,7 @@ const VirtualizedPickItems = memo<{
           const isFound = isFoundItem(item);
           const isNotHere = item._notHere;
           const isQueued = isQueuedItem(item);
-          const deployReason = getColumnValue(item, "deployReason");
-          const deployStatus = getColumnValue(item, "deployStatus");
           const organization = getColumnValue(item, "organization");
-          const category = getColumnValue(item, "category");
-          const drNorm = deployReason?.toString().trim().toUpperCase() || "";
-          const isRecycle = drNorm === "RECYCLING_REQUESTED";
           const serial = safeValue(item, "serialNumber");
           const inventoryId = safeValue(item, "inventoryId");
           const bgColor = isFound ? "var(--item-found-bg)" : isNotHere ? "var(--item-notfound-bg)" : "var(--item-bg)";
@@ -528,15 +486,15 @@ const VirtualizedPickItems = memo<{
           return (
             <Paper
               key={item._pickItemKey || item._id}
-              p="md"
-              radius="lg"
+              p="xs"
+              radius="md"
               withBorder
               style={{
                 position: "relative",
                 overflow: "hidden",
                 backgroundColor: bgColor,
                 opacity: isFound || isNotHere ? 0.75 : 1,
-                minHeight: PICK_ZONE_ROW_HEIGHT - 6,
+                minHeight: PICK_ZONE_ROW_HEIGHT - 8,
                 boxShadow,
                 transition: "opacity 0.2s",
                 borderColor: "rgba(148,163,184,0.25)",
@@ -553,65 +511,48 @@ const VirtualizedPickItems = memo<{
                 }}
               />
 
-              <Group gap="sm" align="flex-start" wrap="nowrap" style={{ paddingLeft: 8 }}>
-                <Stack gap={6} style={{ flex: 1, minWidth: 0 }}>
-                  <Text size="sm" fw={700} style={{ color: "var(--text-primary)", wordBreak: "break-word", textDecoration: isFound || isNotHere ? "line-through" : "none" }}>
+              <Group gap="xs" align="center" wrap="nowrap" style={{ paddingLeft: 6 }}>
+                <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+                  <Text size="xs" fw={700} truncate style={{ color: "var(--text-primary)", textDecoration: isFound || isNotHere ? "line-through" : "none" }}>
                     {safeValue(item, "productTitle")}
                   </Text>
-
-                  <Group gap={6} style={{ flexWrap: "wrap" }}>
-                    <Badge size="sm" variant="light" color="indigo" radius="xl" ff="monospace">
-                      SN: {serial}
-                    </Badge>
-                    <Badge size="sm" variant="light" color="lime" radius="xl" ff="monospace">
-                      ID: {inventoryId}
-                    </Badge>
+                  <Group gap={4} mt={2} wrap="nowrap" style={{ overflow: "hidden" }}>
+                    <Text size="xs" ff="monospace" c="dimmed" truncate style={{ flexShrink: 1, minWidth: 0 }}>
+                      {serial}{inventoryId && serial ? " · " : ""}{inventoryId && `ID:${inventoryId}`}
+                    </Text>
                     {organization && organization !== "N/A" && (
-                      <Badge size="sm" variant="light" color="orange" radius="xl">
+                      <Badge size="xs" variant="light" color="orange" radius="xl" style={{ flexShrink: 0 }}>
                         {organization}
                       </Badge>
                     )}
-                    {category && category !== "N/A" && (
-                      <Badge size="sm" variant="light" color="pink" radius="xl">
-                        {formatCategory(category)}
-                      </Badge>
-                    )}
-                    {deployReason && deployReason !== "N/A" && (
-                      <Badge size="sm" variant="light" color={isRecycle ? "yellow" : "red"} radius="xl">{formatDeployReason(deployReason)}</Badge>
-                    )}
-                    {deployStatus && deployStatus !== "N/A" && (
-                      <Badge size="sm" variant="light" color={deployStatus.toString().toUpperCase() === "AVAILABLE" ? "teal" : "violet"} radius="xl">{formatDeployStatus(deployStatus)}</Badge>
-                    )}
                   </Group>
-                </Stack>
+                </div>
 
-                <Stack gap={4} align="flex-end" style={{ flexShrink: 0 }}>
+                <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
                   <Badge
-                    size="sm"
+                    size="xs"
                     radius="xl"
                     variant={isFound || isNotHere ? "filled" : "light"}
                     color={isFound ? "green" : isNotHere ? "red" : isQueued ? "blue" : "gray"}
-                    leftSection={isFound ? <IconCheck size={12} /> : isNotHere ? <IconX size={12} /> : <IconPackage size={12} />}
+                    leftSection={isFound ? <IconCheck size={10} /> : isNotHere ? <IconX size={10} /> : <IconPackage size={10} />}
                   >
-                    {isFound ? "Put Away" : isNotHere ? "Not Here" : isQueued ? "Queued" : "To Put Away"}
+                    {isFound ? "Done" : isNotHere ? "N/A" : isQueued ? "Queued" : "Pending"}
                   </Badge>
 
                   {!isFound && !isNotHere && isQueued && (
                     <Button
-                      size="lg"
+                      size="md"
                       color="green"
                       radius="xl"
                       fw={700}
                       onClick={(e) => { e.stopPropagation(); onPutAway(item); }}
-                      style={{ flexShrink: 0, minWidth: 140, fontSize: 16, padding: "10px 24px", boxShadow: "0 4px 12px rgba(22,163,74,0.4)" }}
-                      leftSection={<IconCheck size={20} />}
+                      style={{ flexShrink: 0, minWidth: 110, fontSize: 14, padding: "8px 16px", boxShadow: "0 4px 12px rgba(22,163,74,0.4)" }}
+                      leftSection={<IconCheck size={16} />}
                     >
                       Put Away
                     </Button>
                   )}
-
-
-                </Stack>
+                </div>
               </Group>
             </Paper>
           );
@@ -714,20 +655,20 @@ const PickRunView: React.FC<{
   const pct = totalItems > 0 ? Math.round((totalFound / totalItems) * 100) : 0;
 
   return (
-    <Stack gap="md">
+    <Stack gap="xs">
 
       {/* Header */}
-      <Paper radius="xl" p="lg" withBorder style={{ backgroundColor: "rgba(165,210,255,0.10)", borderColor: "rgba(130,180,255,0.30)", boxShadow: "0 2px 12px rgba(100,160,255,0.12)" }}>
-        <Group justify="space-between" mb="sm" align="center">
+      <Paper radius="lg" p="sm" withBorder style={{ backgroundColor: "rgba(165,210,255,0.10)", borderColor: "rgba(130,180,255,0.30)", boxShadow: "0 2px 12px rgba(100,160,255,0.12)" }}>
+        <Group justify="space-between" mb="xs" align="center">
           <Group gap="sm">
             <ThemeIcon radius="xl" size={36} color="orange" variant="light">
               <IconWalk size={20} />
             </ThemeIcon>
             <div>
               <Group gap="xs" align="center" wrap="wrap">
-                <Text size="lg" fw={800} style={{ color: "var(--text-primary)", lineHeight: 1.1 }}>Put Away Run</Text>
-                <Badge size="sm" radius="xl" variant="light" color="orange" style={{ fontWeight: 600 }}>Aisles 1–14 By Outbound</Badge>
-                <Badge size="sm" radius="xl" variant="light" color="orange" style={{ fontWeight: 600 }}>Aisles 15–21 By Retrievals</Badge>
+                <Text size="md" fw={800} style={{ color: "var(--text-primary)", lineHeight: 1.1 }}>Put Away Run</Text>
+                <Badge size="xs" radius="xl" variant="light" color="orange" style={{ fontWeight: 600 }}>Aisles 1–14 Outbound</Badge>
+                <Badge size="xs" radius="xl" variant="light" color="orange" style={{ fontWeight: 600 }}>Aisles 15–21 Retrievals</Badge>
               </Group>
               <Text size="xs" style={{ color: "var(--text-muted)" }}>{pct}% complete</Text>
             </div>
@@ -755,8 +696,8 @@ const PickRunView: React.FC<{
                 justifyContent: "center",
               }}
             >
-              <Text size="xl" fw={900} style={{ color: s.color, lineHeight: 1.1 }}>{s.value}</Text>
-              <Text size="xs" fw={600} style={{ color: "var(--text-muted)", marginTop: 4 }}>{s.label}</Text>
+              <Text size="lg" fw={900} style={{ color: s.color, lineHeight: 1.1 }}>{s.value}</Text>
+              <Text size="xs" fw={600} style={{ color: "var(--text-muted)", marginTop: 2 }}>{s.label}</Text>
             </Paper>
           ))}
         </SimpleGrid>
@@ -829,19 +770,18 @@ const PickRunView: React.FC<{
                   border: allDone ? undefined : "1px solid var(--section-border)",
                 }}
               >
-                {allDone ? <IconCheck size={16} /> : <Text size="sm" fw={800} style={{ color: isActiveZone ? undefined : "var(--text-secondary)" }}>{zone.order}</Text>}
+                {allDone ? <IconCheck size={14} /> : <Text size="xs" fw={800} style={{ color: isActiveZone ? undefined : "var(--text-secondary)" }}>{zone.order}</Text>}
               </ThemeIcon>
-              <div style={{ flex: 1 }}>
-                <Group gap={6} align="center">
-                  <Text size="sm" fw={700} c={allDone ? "green" : undefined} td={allDone ? "line-through" : undefined}>{zone.zoneName}</Text>
-                  {isActiveZone && <Badge size="xs" color="gray" variant="light" radius="xl">Active</Badge>}
-                  {isActiveZone && activeOrganization && <Text size="sm" fw={700} c={allDone ? "green" : undefined} td={allDone ? "line-through" : undefined}>→ {activeOrganization}</Text>}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <Group gap={4} align="center" wrap="nowrap">
+                  <Text size="xs" fw={700} truncate c={allDone ? "green" : undefined} td={allDone ? "line-through" : undefined}>{zone.zoneName}</Text>
+                  {isActiveZone && <Badge size="xs" color="gray" variant="light" radius="xl" style={{ flexShrink: 0 }}>Active</Badge>}
+                  {isActiveZone && activeOrganization && <Text size="xs" fw={700} truncate c={allDone ? "green" : undefined}>→ {activeOrganization}</Text>}
                 </Group>
-                <Group gap={8} mt={2}>
-                  {scannedCount > 0 && <Text size="xs" style={{ color: "#16a34a" }} fw={600}>{scannedCount} scanned</Text>}
-
+                <Group gap={6} mt={1}>
+                  {scannedCount > 0 && <Text size="xs" style={{ color: "#16a34a" }} fw={600}>{scannedCount}/{zone.items.length}</Text>}
                   {remainingCount > 0 && <Text size="xs" c="dimmed">{remainingCount} left</Text>}
-                  {allDone && <Text size="xs" style={{ color: "#16a34a" }} fw={600}>All done ✓</Text>}
+                  {allDone && <Text size="xs" style={{ color: "#16a34a" }} fw={600}>✓</Text>}
                 </Group>
               </div>
               {canExpand && (
@@ -868,14 +808,14 @@ const PickRunView: React.FC<{
 
       {/* Unmapped items */}
       {unmappedItems.length > 0 && (
-        <Paper radius="xl" style={{ border: "2px solid #8b5cf640", backgroundColor: "var(--unmapped-bg)", overflow: "hidden" }}>
-          <Group p="sm" gap="sm" style={{ cursor: "pointer" }} onClick={() => toggleZone("unmapped")}>
-            <ThemeIcon radius="xl" size={36} color="violet" variant="light" style={{ flexShrink: 0 }}>
-              <IconAlertTriangle size={16} />
+        <Paper radius="lg" style={{ border: "2px solid #8b5cf640", backgroundColor: "var(--unmapped-bg)", overflow: "hidden" }}>
+          <Group p="xs" gap="xs" style={{ cursor: "pointer" }} onClick={() => toggleZone("unmapped")}>
+            <ThemeIcon radius="xl" size={28} color="violet" variant="light" style={{ flexShrink: 0 }}>
+              <IconAlertTriangle size={14} />
             </ThemeIcon>
-            <div style={{ flex: 1 }}>
-              <Text size="sm" fw={700} c="violet">Unknown Location</Text>
-              <Text size="xs" c="dimmed">{unmappedUnfound.length} of {unmappedItems.length} — org not on warehouse map</Text>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Text size="xs" fw={700} c="violet">Unknown Location</Text>
+              <Text size="xs" c="dimmed">{unmappedUnfound.length}/{unmappedItems.length} unmapped</Text>
             </div>
             <IconChevronDown size={16} style={{ color: "var(--text-muted)", transform: expandedZones.unmapped ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }} />
           </Group>
@@ -885,16 +825,13 @@ const PickRunView: React.FC<{
                 {unmappedItems.map((item) => {
                   const isFound = isFoundItem(item);
                   return (
-                    <Paper key={item._id} p="sm" radius="lg" style={{ borderLeft: `4px solid ${isFound ? "#16a34a" : "#8b5cf6"}`, backgroundColor: isFound ? "var(--item-found-bg)" : "var(--item-bg)", opacity: isFound ? 0.65 : 1 }}>
-                      <Group gap="sm" wrap="nowrap">
-                        <ThemeIcon size="sm" radius="xl" color={isFound ? "green" : "violet"} variant="light">
-                          {isFound ? <IconCheck size={10} /> : <IconPackage size={10} />}
-                        </ThemeIcon>
+                    <Paper key={item._id} p="xs" radius="md" style={{ borderLeft: `3px solid ${isFound ? "#16a34a" : "#8b5cf6"}`, backgroundColor: isFound ? "var(--item-found-bg)" : "var(--item-bg)", opacity: isFound ? 0.65 : 1 }}>
+                      <Group gap="xs" wrap="nowrap">
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <Text size="xs" fw={700} ff="monospace" style={{ color: "var(--text-secondary)" }}>{safeValue(item, "serialNumber")} / {safeValue(item, "inventoryId")}</Text>
-                          <Text size="xs" c="dimmed" truncate>{safeValue(item, "productTitle")}</Text>
+                          <Text size="xs" ff="monospace" c="dimmed" truncate>{safeValue(item, "serialNumber")} · {safeValue(item, "inventoryId")}</Text>
+                          <Text size="xs" truncate>{safeValue(item, "productTitle")}</Text>
                         </div>
-                        <Badge size="sm" variant="light" color="violet" radius="xl">{(getColumnValue(item, "organization") as string) || "No Org"}</Badge>
+                        <Badge size="xs" variant="light" color="violet" radius="xl">{(getColumnValue(item, "organization") as string) || "No Org"}</Badge>
                       </Group>
                     </Paper>
                   );
