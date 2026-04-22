@@ -980,19 +980,17 @@ export default function InventoryScanner() {
   const deferredFoundIdSet = useDeferredValue(foundIdSet);
   const deferredQueuedIdSet = useDeferredValue(queuedIdSet);
 
-  // Pre-compute the next eligible StackAdapt item so processScannedCode is O(1) instead of looping all zones
-  const nextStackAdaptRef = useRef<InventoryItem | null>(null);
+  // Pre-compute the next eligible item (any org) so processScannedCode is O(1) instead of looping all zones
+  const nextEligibleRef = useRef<InventoryItem | null>(null);
   useEffect(() => {
     const run = pickRunData;
     const inv = inventoryList;
-    if (!run || inv.length === 0) { nextStackAdaptRef.current = null; return; }
+    if (!run || inv.length === 0) { nextEligibleRef.current = null; return; }
     const foundCol = detectedColumns.found || "Found";
     let next: InventoryItem | null = null;
     for (const zone of run.zones) {
       for (const pi of zone.items) {
         const live = inv.find((x) => x._id === pi._id) || (pi as InventoryItem);
-        const org = normalize(getColumnValue(live as Record<string, unknown>, "organization"));
-        if (org !== "stackadapt") continue;
         const finalized = foundIdSet.has(live._id) || !!(live as Record<string, unknown>)[foundCol] || !!notHereItems[pi._pickItemKey];
         if (finalized) continue;
         if (queuedIdSet.has(live._id)) continue;
@@ -1001,7 +999,7 @@ export default function InventoryScanner() {
       }
       if (next) break;
     }
-    nextStackAdaptRef.current = next;
+    nextEligibleRef.current = next;
   }, [pickRunData, inventoryList, foundIdSet, queuedIdSet, notHereItems, detectedColumns]);
 
   const buildLookupMap = useCallback((dataList: InventoryItem[]) => {
@@ -1163,12 +1161,11 @@ export default function InventoryScanner() {
         return;
       }
 
-      // Use pre-computed next StackAdapt item (O(1) instead of looping all zones)
-      const nextStackAdapt = nextStackAdaptRef.current;
-      const scannedOrg = normalize(getColumnValue(foundItem as Record<string, unknown>, "organization"));
+      // Use pre-computed next eligible item (O(1) instead of looping all zones)
+      const nextEligible = nextEligibleRef.current;
 
-      // Only allow scanning the next StackAdapt item at the top of the queue.
-      if (!nextStackAdapt || scannedOrg !== "stackadapt" || foundItem._id !== nextStackAdapt._id) {
+      // Only allow scanning the next item at the top of the queue (any organization).
+      if (!nextEligible || foundItem._id !== nextEligible._id) {
         setScanResult({ code: decodedText, found: false, onCart: true });
         return;
       }
