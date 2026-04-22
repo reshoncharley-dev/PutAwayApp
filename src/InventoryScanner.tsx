@@ -717,7 +717,7 @@ const PickRunView: React.FC<{
     <Stack gap="md">
 
       {/* Header */}
-      <Paper radius="xl" p="lg" withBorder style={{ backgroundColor: "rgba(249,115,22,0.08)", borderColor: "rgba(249,115,22,0.25)", boxShadow: "var(--card-shadow)" }}>
+      <Paper radius="xl" p="lg" withBorder style={{ backgroundColor: "rgba(165,210,255,0.10)", borderColor: "rgba(130,180,255,0.30)", boxShadow: "0 2px 12px rgba(100,160,255,0.12)" }}>
         <Group justify="space-between" mb="sm" align="center">
           <Group gap="sm">
             <ThemeIcon radius="xl" size={36} color="orange" variant="light">
@@ -734,7 +734,7 @@ const PickRunView: React.FC<{
           </Group>
 
         </Group>
-        <Progress value={pct} size={6} radius="xl" mb="md" color="orange" styles={{ root: { backgroundColor: "rgba(249,115,22,0.15)" } }} />
+        <Progress value={pct} size={6} radius="xl" mb="md" color="blue" styles={{ root: { backgroundColor: "rgba(130,180,255,0.15)" } }} />
         <SimpleGrid cols={{ base: 2, sm: 2 }} spacing="sm">
           {[
             { value: totalFound, label: "Put Away", color: "#16a34a" },
@@ -746,8 +746,8 @@ const PickRunView: React.FC<{
               radius="lg"
               withBorder
               style={{
-                backgroundColor: "rgba(249,115,22,0.06)",
-                borderColor: "rgba(249,115,22,0.15)",
+                backgroundColor: "rgba(165,210,255,0.08)",
+                borderColor: "rgba(130,180,255,0.20)",
                 textAlign: "center",
                 minHeight: 84,
                 display: "flex",
@@ -803,10 +803,10 @@ const PickRunView: React.FC<{
 
         const borderColor = allDone
           ? "#16a34a"
-          : "var(--section-border)";
+          : isActiveZone ? "rgba(99,162,255,0.5)" : "rgba(148,163,184,0.25)";
         const bgColor = allDone
           ? "var(--zone-done-bg)"
-          : "var(--item-bg)";
+          : isActiveZone ? "rgba(99,162,255,0.08)" : "rgba(148,163,184,0.06)";
 
         return (
           <Paper key={zone.zoneId} radius="xl" style={{ border: `2px solid ${borderColor}`, backgroundColor: bgColor, opacity: allDone ? 0.6 : 1, overflow: "hidden", transition: "opacity 0.2s" }}>
