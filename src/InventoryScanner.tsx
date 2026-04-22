@@ -724,8 +724,10 @@ const PickRunView: React.FC<{
               <IconWalk size={20} />
             </ThemeIcon>
             <div>
-              <Group gap="xs" align="center">
+              <Group gap="xs" align="center" wrap="wrap">
                 <Text size="lg" fw={800} style={{ color: "var(--text-primary)", lineHeight: 1.1 }}>Put Away Run</Text>
+                <Badge size="sm" radius="xl" variant="light" color="blue" style={{ fontWeight: 600 }}>Aisles 1–14 By Outbound</Badge>
+                <Badge size="sm" radius="xl" variant="light" color="orange" style={{ fontWeight: 600 }}>Aisles 15–21 By Retrievals</Badge>
               </Group>
               <Text size="xs" style={{ color: "var(--text-muted)" }}>{pct}% complete</Text>
             </div>
