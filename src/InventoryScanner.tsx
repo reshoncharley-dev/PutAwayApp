@@ -712,6 +712,8 @@ const PickRunView: React.FC<{
         </SimpleGrid>
       </Paper>
 
+      {lastScannedCode && <ScanResult scannedCode={lastScannedCode} found={lastScanFound} onCart={lastScanOnCart} />}
+
       <TextInput
         placeholder="Scan or type barcode here…"
         leftSection={<IconSearch size={16} />}
@@ -726,8 +728,6 @@ const PickRunView: React.FC<{
         size="md"
         styles={{ input: { backgroundColor: "var(--card-bg)", border: "1.5px solid var(--item-border)" } }}
       />
-
-      {lastScannedCode && <ScanResult scannedCode={lastScannedCode} found={lastScanFound} onCart={lastScanOnCart} />}
 
       {isPickRunComplete && (
         <Paper radius="xl" p="lg" style={{ background: "linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)", border: "2px solid #16a34a", textAlign: "center" }}>
