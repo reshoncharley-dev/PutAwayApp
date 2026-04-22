@@ -8,10 +8,10 @@ import {
   ThemeIcon, useMantineColorScheme, useComputedColorScheme,
 } from "@mantine/core";
 import {
-  IconCheck, IconX, IconSearch, IconDownload, IconRefresh, IconRoute,
-  IconWalk, IconClipboardList, IconUpload,
+  IconCheck, IconX, IconSearch, IconDownload, IconRefresh,
+  IconWalk, IconUpload,
   IconAlertTriangle, IconCloudUpload, IconChevronDown,
-  IconFileSpreadsheet, IconTrash, IconPackage, IconSun, IconMoon,
+  IconFileSpreadsheet, IconPackage, IconSun, IconMoon,
 } from "@tabler/icons-react";
 
 // ============================================================
@@ -24,7 +24,7 @@ interface InventoryItem { _id: string; _rowIndex: number; [key: string]: unknown
 interface PickItem extends InventoryItem { _shelfPos: number; _shelfSide: string; _pickItemKey: string; _notHere?: boolean; _orderIdx?: number; _origIdx?: number; }
 interface PickRunZone { zoneId: string; zoneName: string; section: string; order: number; color: string; items: PickItem[]; unfoundCount?: number; _autoCompleted?: boolean; _sinkToBottom?: boolean; }
 interface PickRunDataType { zones: PickRunZone[]; unmapped: InventoryItem[]; }
-interface SavedState { inventoryList: InventoryItem[]; csvFileName: string; foundCount: number; foundIds: string[]; notFoundIds: string[]; detectedColumns: Record<string, string>; organizations: string[]; pickRunData: PickRunDataType | null; notHereItems: Record<string, boolean>; deployReasonFilter: string; googleSheetId?: string; googleSheetTitle?: string; googleSheetTab?: string; googleSyncEnabled?: boolean; }
+interface SavedState { inventoryList: InventoryItem[]; csvFileName: string; foundCount: number; foundIds: string[]; notFoundIds: string[]; detectedColumns: Record<string, string>; organizations: string[]; pickRunData: PickRunDataType | null; notHereItems: Record<string, boolean>; googleSheetId?: string; googleSheetTitle?: string; googleSheetTab?: string; googleSyncEnabled?: boolean; }
 interface GoogleSheetsState { isSignedIn: boolean; isConnected: boolean; isLoading: boolean; error: string; spreadsheetId: string; spreadsheetTitle: string; sheetTab: string; sheetTabs: GSheets.SheetInfo[]; realtimeSync: boolean; recentSpreadsheets: Array<{ id: string; name: string; modifiedTime: string }>; showSetup: boolean; clientId: string; sheetHeaders: string[]; foundColumnIndex: number; }
 
 // ============================================================
@@ -148,16 +148,6 @@ const getColumnValue = (item: Record<string, unknown>, columnType: string): stri
   return null;
 };
 
-const setColumnValue = (item: Record<string, unknown>, columnType: string, value: unknown): Record<string, unknown> => {
-  if (!item || !columnType) return item;
-  const possibleNames = COLUMN_MAPPINGS[columnType] || [];
-  for (const name of possibleNames) { if (name in item) return { ...item, [name]: value }; }
-  const itemKeys = Object.keys(item);
-  for (const name of possibleNames) { const lowerName = name.toLowerCase(); for (const key of itemKeys) { if (key.toLowerCase() === lowerName) return { ...item, [key]: value }; } }
-  if (possibleNames.length > 0) return { ...item, [possibleNames[0]]: value };
-  return item;
-};
-
 const saveToStorage = (data: SavedState): void => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch { /* ignore */ } };
 const loadFromStorage = (): SavedState | null => { try { const raw = localStorage.getItem(STORAGE_KEY); if (!raw) return null; return JSON.parse(raw) as SavedState; } catch { return null; } };
 const clearStorage = (): void => { try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ } };
@@ -178,19 +168,8 @@ const formatCategory = (value: unknown): string => {
   return (value as string).toString().trim();
 };
 
-const generateExportFilename = (csvFileName: string): string => {
-  const baseName = csvFileName ? csvFileName.replace(/\.[^/.]+$/, "") : "inventory";
-  return `put_away_${baseName}_${new Date().toISOString().slice(0, 10)}.csv`;
-};
 const triggerHapticFeedback = (): void => { if ("vibrate" in navigator) navigator.vibrate(VIBRATE_DURATION); };
 const parseBoolean = (value: unknown): boolean => { if (typeof value === "boolean") return value; if (typeof value === "string") { const n = value.toLowerCase().trim(); return n === "true" || n === "1" || n === "yes"; } return false; };
-const normalizeDeployReason = (value: unknown): string => (value as string)?.toString().trim().toUpperCase().replace(/\s+/g, "_") || "";
-const matchesDeployReasonFilter = (item: Record<string, unknown>, filter: string): boolean => {
-  if (!filter || filter === "ALL") return true;
-  const dr = normalizeDeployReason(getColumnValue(item, "deployReason"));
-  if (filter === "NONE") return !dr;
-  return dr === normalizeDeployReason(filter);
-};
 
 const useInventorySearch = (inventoryList: InventoryItem[]) => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -213,7 +192,7 @@ const useInventorySearch = (inventoryList: InventoryItem[]) => {
 // Sub-Components
 // ============================================================
 
-const ScanResult: React.FC<{ scannedCode: string; found: boolean; scannedItem?: InventoryItem | null; queued?: boolean }> = ({ scannedCode, found, scannedItem, queued = false }) => {
+const ScanResult: React.FC<{ scannedCode: string; found: boolean; onCart: boolean; scannedItem?: InventoryItem | null; queued?: boolean }> = ({ scannedCode, found, onCart, scannedItem, queued = false }) => {
   void queued;
   if (!scannedCode) return null;
   const scheme = useComputedColorScheme("light");
@@ -224,11 +203,23 @@ const ScanResult: React.FC<{ scannedCode: string; found: boolean; scannedItem?: 
   const organization = scannedItem ? getColumnValue(scannedItem, "organization") : null;
   const drNorm = deployReason?.toString().trim().toUpperCase() || "";
   const isRecycle = drNorm === "RECYCLING_REQUESTED";
-  const bg = found
-    ? (isDark ? "rgba(22,163,74,0.18)" : "linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)")
-    : (isDark ? "rgba(220,38,38,0.18)" : "linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)");
-  const textColor = found ? (isDark ? "#4ade80" : "#15803d") : (isDark ? "#f87171" : "#b91c1c");
-  const subColor = found ? (isDark ? "#86efac" : "#166534") : (isDark ? "#fca5a5" : "#991b1b");
+  const isWaiting = onCart && !found;
+  const bg = isWaiting
+    ? (isDark ? "rgba(234,179,8,0.2)" : "linear-gradient(135deg, #fef9c3 0%, #fde68a 100%)")
+    : onCart
+      ? (isDark ? "rgba(22,163,74,0.18)" : "linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)")
+      : (isDark ? "rgba(220,38,38,0.18)" : "linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)");
+  const textColor = isWaiting
+    ? (isDark ? "#fde047" : "#a16207")
+    : onCart
+      ? (isDark ? "#4ade80" : "#15803d")
+      : (isDark ? "#f87171" : "#b91c1c");
+  const subColor = isWaiting
+    ? (isDark ? "#fef08a" : "#854d0e")
+    : onCart
+      ? (isDark ? "#86efac" : "#166534")
+      : (isDark ? "#fca5a5" : "#991b1b");
+
   return (
     <Paper
       radius="xl"
@@ -237,23 +228,36 @@ const ScanResult: React.FC<{ scannedCode: string; found: boolean; scannedItem?: 
       className="scan-result-enter"
       style={{
         background: bg,
-        border: `2px solid ${found ? (isDark ? "#16a34a" : "#16a34a") : (isDark ? "#dc2626" : "#dc2626")}`,
+        border: `2px solid ${isWaiting ? "#eab308" : onCart ? "#16a34a" : "#dc2626"}`,
       }}
     >
       <Group gap="md" align="center">
         <ThemeIcon
           radius="xl"
           size={48}
-          color={found ? "green" : "red"}
+          color={isWaiting ? "yellow" : onCart ? "green" : "red"}
           variant={isDark ? "light" : "filled"}
-          style={{ flexShrink: 0, boxShadow: found ? "0 4px 14px rgba(22,163,74,0.35)" : "0 4px 14px rgba(220,38,38,0.35)" }}
+          style={{
+            flexShrink: 0,
+            boxShadow: isWaiting
+              ? "0 4px 14px rgba(234,179,8,0.35)"
+              : onCart
+                ? "0 4px 14px rgba(22,163,74,0.35)"
+                : "0 4px 14px rgba(220,38,38,0.35)",
+          }}
         >
-          {found ? <IconCheck size={24} /> : <IconX size={24} />}
+          {isWaiting ? <IconAlertTriangle size={24} /> : onCart ? <IconCheck size={24} /> : <IconX size={24} />}
         </ThemeIcon>
         <div style={{ flex: 1, minWidth: 0 }}>
           <Group gap="xs" align="center" mb={2}>
             <Text fw={800} ff="monospace" size="lg" style={{ color: textColor }}>{scannedCode}</Text>
-            <Badge color={found ? "green" : "red"} variant="filled" size="sm" radius="xl">{found ? "✓ Put Away" : "✗ Not on Cart"}</Badge>
+            <Badge color={isWaiting ? "yellow" : onCart ? "green" : "red"} variant="filled" size="sm" radius="xl">{onCart ? "✓ On Put Away Cart" : "✗ Not On Put Away Cart"}</Badge>
+            {onCart && !found && (
+              <Badge color="yellow" variant="light" size="sm" radius="xl">Waiting / Not current top item</Badge>
+            )}
+            {onCart && found && (
+              <Badge color="blue" variant="light" size="sm" radius="xl">Queued</Badge>
+            )}
           </Group>
           {productTitle && productTitle !== "N/A" && (
             <Text size="sm" fw={500} style={{ color: subColor }} truncate>{productTitle}</Text>
@@ -440,10 +444,11 @@ const PICK_ZONE_OVERSCAN = 6;
 const VirtualizedPickItems = memo<{
   items: PickItem[];
   isFoundItem: (item: Record<string, unknown>) => boolean;
-  onNotHere: (key: string, isNotHere: boolean, itemId: string) => void;
+  isQueuedItem: (item: Record<string, unknown>) => boolean;
+  onPutAway: (item: PickItem) => void;
   activeOrganization?: string;
   showOnlyActiveOrganization?: boolean;
-}>(({ items, isFoundItem, onNotHere, activeOrganization, showOnlyActiveOrganization = false }) => {
+}>(({ items, isFoundItem, isQueuedItem, onPutAway, activeOrganization, showOnlyActiveOrganization = false }) => {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(420);
@@ -503,6 +508,7 @@ const VirtualizedPickItems = memo<{
         {visibleItems.map((item) => {
           const isFound = isFoundItem(item);
           const isNotHere = item._notHere;
+          const isQueued = isQueuedItem(item);
           const deployReason = getColumnValue(item, "deployReason");
           const deployStatus = getColumnValue(item, "deployStatus");
           const organization = getColumnValue(item, "organization");
@@ -584,24 +590,25 @@ const VirtualizedPickItems = memo<{
                     size="sm"
                     radius="xl"
                     variant={isFound || isNotHere ? "filled" : "light"}
-                    color={isFound ? "green" : isNotHere ? "red" : "gray"}
+                    color={isFound ? "green" : isNotHere ? "red" : isQueued ? "blue" : "gray"}
                     leftSection={isFound ? <IconCheck size={12} /> : isNotHere ? <IconX size={12} /> : <IconPackage size={12} />}
                   >
-                    {isFound ? "Put Away" : isNotHere ? "Not Here" : "To Put Away"}
+                    {isFound ? "Put Away" : isNotHere ? "Not Here" : isQueued ? "Queued" : "To Put Away"}
                   </Badge>
 
-                  {!isFound && (
+                  {!isFound && !isNotHere && isQueued && (
                     <Button
                       size="compact-xs"
-                      variant={isNotHere ? "light" : "filled"}
-                      color={isNotHere ? "gray" : "red"}
+                      color="green"
                       radius="xl"
-                      onClick={(e) => { e.stopPropagation(); onNotHere(item._pickItemKey, !isNotHere, item._id); }}
+                      onClick={(e) => { e.stopPropagation(); onPutAway(item); }}
                       style={{ flexShrink: 0 }}
                     >
-                      {isNotHere ? "Undo" : "Not Here"}
+                      Put Away
                     </Button>
                   )}
+
+
                 </Stack>
               </Group>
             </Paper>
@@ -622,13 +629,14 @@ const PickRunView: React.FC<{
   inventoryList: InventoryItem[];
   detectedColumns: Record<string, string>;
   foundIdSet: Set<string>;
-  onClose: () => void;
   lastScannedCode: string;
   lastScanFound: boolean;
+  lastScanOnCart: boolean;
   notHereItems: Record<string, boolean>;
-  onNotHere: (key: string, isNotHere: boolean, itemId: string) => void;
+  queuedIdSet: Set<string>;
+  onPutAway: (itemId: string) => void;
   onScan: (code: string) => void;
-}> = ({ pickRunData, inventoryList, detectedColumns, foundIdSet, onClose, lastScannedCode, lastScanFound, notHereItems, onNotHere, onScan }) => {
+}> = ({ pickRunData, inventoryList, detectedColumns, foundIdSet, lastScannedCode, lastScanFound, lastScanOnCart, notHereItems, queuedIdSet, onPutAway, onScan }) => {
   const [expandedZones, setExpandedZones] = useState<Record<string, boolean>>({}); // collapsed by default for performance
   const inventoryById = useMemo(() => { const map = new Map<string, InventoryItem>(); inventoryList.forEach((item) => map.set(item._id, item)); return map; }, [inventoryList]);
   const foundColumnName = detectedColumns.found || "Found";
@@ -666,10 +674,10 @@ const PickRunView: React.FC<{
   const uniqueTotals = useMemo(() => {
     const seenIds = new Set<string>(); const seenUnfoundIds = new Set<string>(); const seenNotHereIds = new Set<string>(); const seenFoundIds = new Set<string>();
     liveZones.forEach((zone) => { zone.items.forEach((item) => { seenIds.add(item._id); if (item._notHere) seenNotHereIds.add(item._id); else if (!isFoundItem(item)) seenUnfoundIds.add(item._id); else seenFoundIds.add(item._id); }); });
-    return { totalItems: seenIds.size, totalRemaining: seenUnfoundIds.size, totalFound: seenFoundIds.size, totalNotHere: seenNotHereIds.size };
+    return { totalItems: seenIds.size, totalRemaining: seenUnfoundIds.size, totalFound: seenFoundIds.size };
   }, [liveZones, isFoundItem]);
 
-  const { totalItems, totalRemaining, totalFound, totalNotHere } = uniqueTotals;
+  const { totalItems, totalRemaining, totalFound } = uniqueTotals;
 
   const activeZone = useMemo(
     () => liveZones.find((zone) => (zone.unfoundCount ?? 0) > 0),
@@ -720,15 +728,12 @@ const PickRunView: React.FC<{
               <Text size="xs" style={{ color: "var(--text-muted)" }}>{pct}% complete</Text>
             </div>
           </Group>
-          <Button variant="light" color="orange" size="xs" radius="xl" onClick={onClose} style={{ fontWeight: 700 }}>
-            Exit
-          </Button>
+
         </Group>
         <Progress value={pct} size={6} radius="xl" mb="md" color="orange" styles={{ root: { backgroundColor: "rgba(249,115,22,0.15)" } }} />
         <SimpleGrid cols={3} spacing="xs">
           {[
             { value: totalFound, label: "Put Away", color: "#16a34a" },
-            { value: totalNotHere, label: "Not Here", color: "#dc2626" },
             { value: totalRemaining + unmappedUnfound.length, label: "Remaining", color: "var(--text-primary)" },
           ].map((s) => (
             <Paper key={s.label} p="xs" radius="lg" withBorder style={{ backgroundColor: "rgba(249,115,22,0.06)", borderColor: "rgba(249,115,22,0.15)", textAlign: "center" }}>
@@ -754,7 +759,7 @@ const PickRunView: React.FC<{
         styles={{ input: { backgroundColor: "var(--card-bg)", border: "1.5px solid var(--item-border)" } }}
       />
 
-      {lastScannedCode && <ScanResult scannedCode={lastScannedCode} found={lastScanFound} />}
+      {lastScannedCode && <ScanResult scannedCode={lastScannedCode} found={lastScanFound} onCart={lastScanOnCart} />}
 
       {isPickRunComplete && (
         <Paper radius="xl" p="lg" style={{ background: "linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)", border: "2px solid #16a34a", textAlign: "center" }}>
@@ -816,7 +821,7 @@ const PickRunView: React.FC<{
                 </Group>
                 <Group gap={8} mt={2}>
                   {scannedCount > 0 && <Text size="xs" style={{ color: "#16a34a" }} fw={600}>{scannedCount} scanned</Text>}
-                  {notFoundCount > 0 && <Text size="xs" style={{ color: "#dc2626" }} fw={600}>{notFoundCount} not here</Text>}
+
                   {remainingCount > 0 && <Text size="xs" c="dimmed">{remainingCount} left</Text>}
                   {allDone && <Text size="xs" style={{ color: "#16a34a" }} fw={600}>All done ✓</Text>}
                 </Group>
@@ -831,7 +836,8 @@ const PickRunView: React.FC<{
                   <VirtualizedPickItems
                     items={zone.items}
                     isFoundItem={isFoundItem}
-                    onNotHere={onNotHere}
+                    isQueuedItem={(item) => queuedIdSet.has(item._id as string)}
+                    onPutAway={(item) => onPutAway(item._id)}
                     activeOrganization={isActiveZone ? activeOrganization : undefined}
                     showOnlyActiveOrganization={isActiveZone && !!activeOrganization}
                   />
@@ -891,7 +897,7 @@ const PickRunView: React.FC<{
               <Text size="sm" fw={700} style={{ color: "#b91c1c" }}>
                 {totalRemaining + unmappedUnfound.length} devices still to put away
               </Text>
-              <Text size="xs" style={{ color: "#991b1b" }}>Check device locations or mark as not here.</Text>
+              <Text size="xs" style={{ color: "#991b1b" }}>Check device locations and verify cart details.</Text>
             </div>
           </Group>
         </Paper>
@@ -914,6 +920,7 @@ export default function InventoryScanner() {
   const [csvFileName, setCsvFileName] = useState("");
   const [lastScannedCode, setLastScannedCode] = useState("");
   const [lastScanFound, setLastScanFound] = useState(false);
+  const [lastScanOnCart, setLastScanOnCart] = useState(false);
   const [foundCount, setFoundCount] = useState(0);
   const [foundIdSet, setFoundIdSet] = useState<Set<string>>(new Set());
   const [notFoundIdSet, setNotFoundIdSet] = useState<Set<string>>(new Set());
@@ -921,10 +928,10 @@ export default function InventoryScanner() {
   const [organizations, setOrganizations] = useState<string[]>([]);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const uploadStatusTimerRef = useRef<number | undefined>(undefined);
-  const [pickRunMode, setPickRunMode] = useState(false);
+  const [pickRunMode, setPickRunMode] = useState(true);
   const [pickRunData, setPickRunData] = useState<PickRunDataType | null>(null);
   const [notHereItems, setNotHereItems] = useState<Record<string, boolean>>({});
-  const [deployReasonFilter, setDeployReasonFilter] = useState("ALL");
+  const [queuedIdSet, setQueuedIdSet] = useState<Set<string>>(new Set());
   const [, setFoundMap] = useState<Map<string, boolean>>(new Map());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hasRestoredRef = useRef(false);
@@ -933,6 +940,9 @@ export default function InventoryScanner() {
   const inventoryListRef = useRef<InventoryItem[]>([]);
   const foundIdSetRef = useRef<Set<string>>(new Set());
   const notFoundIdSetRef = useRef<Set<string>>(new Set());
+  const queuedIdSetRef = useRef<Set<string>>(new Set());
+  const notHereItemsRef = useRef<Record<string, boolean>>({});
+  const pickRunDataRef = useRef<PickRunDataType | null>(null);
   const detectedColumnsRef = useRef<Record<string, string>>({});
   const pickRunModeRef = useRef(false);
   const saveTimerRef = useRef<number | undefined>(undefined);
@@ -947,6 +957,7 @@ export default function InventoryScanner() {
   const queueGoogleSyncRef = useRef<((item: InventoryItem) => void) | null>(null);
   const { setSearchQuery } = useInventorySearch(inventoryList);
 
+
   const deferredFoundIdSet = useDeferredValue(foundIdSet);
   const buildLookupMap = useCallback((dataList: InventoryItem[]) => {
     const map = new Map<string, number>();
@@ -959,9 +970,9 @@ export default function InventoryScanner() {
     if (inventoryList.length === 0) return;
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
     saveTimerRef.current = window.setTimeout(() => {
-      saveToStorage({ inventoryList, csvFileName, foundCount: foundIdSet.size, foundIds: Array.from(foundIdSet), notFoundIds: Array.from(notFoundIdSet), detectedColumns, organizations, pickRunData, notHereItems, deployReasonFilter, googleSheetId: googleState.spreadsheetId || undefined, googleSheetTitle: googleState.spreadsheetTitle || undefined, googleSheetTab: googleState.sheetTab || undefined, googleSyncEnabled: googleState.realtimeSync || undefined });
+      saveToStorage({ inventoryList, csvFileName, foundCount: foundIdSet.size, foundIds: Array.from(foundIdSet), notFoundIds: Array.from(notFoundIdSet), detectedColumns, organizations, pickRunData, notHereItems, googleSheetId: googleState.spreadsheetId || undefined, googleSheetTitle: googleState.spreadsheetTitle || undefined, googleSheetTab: googleState.sheetTab || undefined, googleSyncEnabled: googleState.realtimeSync || undefined });
     }, 800);
-  }, [inventoryList, csvFileName, foundIdSet, notFoundIdSet, detectedColumns, organizations, pickRunData, notHereItems, deployReasonFilter, googleState.spreadsheetId, googleState.spreadsheetTitle, googleState.sheetTab, googleState.realtimeSync]);
+  }, [inventoryList, csvFileName, foundIdSet, notFoundIdSet, detectedColumns, organizations, pickRunData, notHereItems, googleState.spreadsheetId, googleState.spreadsheetTitle, googleState.sheetTab, googleState.realtimeSync]);
 
   // Restore
   useEffect(() => {
@@ -969,7 +980,7 @@ export default function InventoryScanner() {
     hasRestoredRef.current = true;
     const saved = loadFromStorage();
     if (!saved || !saved.inventoryList || saved.inventoryList.length === 0) return;
-    setInventoryList(saved.inventoryList); setCsvFileName(saved.csvFileName || ""); setFoundCount(saved.foundCount || 0); setFoundIdSet(new Set(saved.foundIds || [])); setNotFoundIdSet(new Set(saved.notFoundIds || [])); setDetectedColumns(saved.detectedColumns || {}); setOrganizations(saved.organizations || []); setPickRunData(saved.pickRunData || null); setNotHereItems(saved.notHereItems || {}); setDeployReasonFilter(saved.deployReasonFilter || "ALL"); buildLookupMap(saved.inventoryList);
+    setInventoryList(saved.inventoryList); setCsvFileName(saved.csvFileName || ""); setFoundCount(saved.foundCount || 0); setFoundIdSet(new Set(saved.foundIds || [])); setNotFoundIdSet(new Set(saved.notFoundIds || [])); setDetectedColumns(saved.detectedColumns || {}); setOrganizations(saved.organizations || []); setPickRunData(saved.pickRunData || null); setNotHereItems(saved.notHereItems || {}); buildLookupMap(saved.inventoryList);
     const restoredFoundMap = new Map<string, boolean>();
     const foundCol = (saved.detectedColumns && saved.detectedColumns.found) || "Found";
     saved.inventoryList.forEach((item) => { if ((item as Record<string, unknown>)[foundCol]) restoredFoundMap.set(item._id, true); });
@@ -984,14 +995,51 @@ export default function InventoryScanner() {
   useEffect(() => { inventoryListRef.current = inventoryList; }, [inventoryList]);
   useEffect(() => { foundIdSetRef.current = foundIdSet; }, [foundIdSet]);
   useEffect(() => { notFoundIdSetRef.current = notFoundIdSet; }, [notFoundIdSet]);
+  useEffect(() => { queuedIdSetRef.current = queuedIdSet; }, [queuedIdSet]);
+  useEffect(() => { notHereItemsRef.current = notHereItems; }, [notHereItems]);
+  useEffect(() => { pickRunDataRef.current = pickRunData; }, [pickRunData]);
   useEffect(() => { detectedColumnsRef.current = detectedColumns; }, [detectedColumns]);
   useEffect(() => { pickRunModeRef.current = pickRunMode; }, [pickRunMode]);
 
   const clearInventory = useCallback(() => {
-    setInventoryList([]); setUploadStatus(""); setCsvFileName(""); setLastScannedCode(""); setLastScanFound(false); setSearchQuery(""); setFoundCount(0); setDetectedColumns({}); setOrganizations([]); setFoundMap(new Map()); setFoundIdSet(new Set()); setNotFoundIdSet(new Set()); setPickRunMode(false); setPickRunData(null); setDeployReasonFilter("ALL"); lookupMapRef.current = new Map(); clearStorage();
+    setInventoryList([]); setUploadStatus(""); setCsvFileName(""); setLastScannedCode(""); setLastScanFound(false); setLastScanOnCart(false); setSearchQuery(""); setFoundCount(0); setDetectedColumns({}); setOrganizations([]); setFoundMap(new Map()); setFoundIdSet(new Set()); setNotFoundIdSet(new Set()); setQueuedIdSet(new Set()); setPickRunMode(false); setPickRunData(null); lookupMapRef.current = new Map(); clearStorage();
     if (fileInputRef.current) fileInputRef.current.value = "";
     setGoogleState((prev) => ({ ...prev, realtimeSync: false, sheetHeaders: [], foundColumnIndex: -1 }));
   }, [setSearchQuery]);
+
+  const handleExportCsv = useCallback(() => {
+    if (inventoryList.length === 0) {
+      setUploadStatus("Nothing to export — load a cart first.");
+      return;
+    }
+
+    const foundColumnName = detectedColumns.found || "Found";
+    const rows = inventoryList.map((item) => {
+      const itemRecord = item as Record<string, unknown>;
+      const isFound = foundIdSet.has(item._id) || !!itemRecord[foundColumnName];
+      const isQueued = queuedIdSet.has(item._id);
+
+      return {
+        ...itemRecord,
+        Found: isFound,
+        QueueStatus: isQueued ? "QUEUED" : isFound ? "PUT_AWAY" : "PENDING",
+      };
+    });
+
+    const csv = Papa.unparse(rows);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const baseName = (csvFileName || "put-away-cart").replace(/\.csv$/i, "");
+    link.href = url;
+    link.setAttribute("download", `${baseName}-export.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setUploadStatus(`Exported ${rows.length} rows to CSV`);
+  }, [inventoryList, detectedColumns, foundIdSet, queuedIdSet, csvFileName]);
 
   const detectColumns = (data: Record<string, unknown>[]): Record<string, string> => {
     if (!data || data.length === 0) return {};
@@ -1031,10 +1079,11 @@ export default function InventoryScanner() {
           if (foundStatus) { initialFoundCount++; initialFoundMap.set(uniqueId, true); initialFoundIds.add(uniqueId); }
           return { ...itemWithFound, _id: uniqueId, _rowIndex: index } as InventoryItem;
         });
-        setInventoryList(dataList); setFoundMap(initialFoundMap); setFoundIdSet(initialFoundIds); setCsvFileName(file.name); setFoundCount(initialFoundCount); setOrganizations(Array.from(uniqueOrganizations).sort()); setPickRunMode(false); setPickRunData(null); setDeployReasonFilter("ALL"); buildLookupMap(dataList);
+        setInventoryList(dataList); setFoundMap(initialFoundMap); setFoundIdSet(initialFoundIds); setCsvFileName(file.name); setFoundCount(initialFoundCount); setOrganizations(Array.from(uniqueOrganizations).sort()); setPickRunMode(false); setPickRunData(null); buildLookupMap(dataList);
         autoStartRef.current = true;
         setUploadStatus(`Loaded ${dataList.length} devices for put away`);
         setLastScannedCode("");
+        setLastScanOnCart(false);
         
       },
       error: (err) => { setUploadStatus(`Error: ${err.message}`); clearInventory(); },
@@ -1043,42 +1092,78 @@ export default function InventoryScanner() {
 
   const processScannedCode = useCallback((decodedText: string) => {
     const inv = inventoryListRef.current;
-    if (inv.length === 0) { setLastScannedCode(decodedText); setLastScanFound(false); return; }
+    if (inv.length === 0) { setLastScannedCode(decodedText); setLastScanFound(false); setLastScanOnCart(false); return; }
     const code = normalize(decodedText);
     const foundItemIndex = lookupMapRef.current.get(code);
-    if (foundItemIndex !== undefined) {
-      const foundItem = inv[foundItemIndex];
-      const foundColumnName = detectedColumnsRef.current.found || "Found";
-      const isAlreadyFound = foundIdSetRef.current.has(foundItem._id) || !!(foundItem as Record<string, unknown>)[foundColumnName];
-      setLastScannedCode(decodedText);
-      setLastScanFound(true);
-      if (!isAlreadyFound) {
-        setFoundIdSet((prev) => { const next = new Set(prev); next.add(foundItem._id); return next; });
-        if (notFoundIdSetRef.current.has(foundItem._id)) {
-          setNotFoundIdSet((prev) => { const next = new Set(prev); next.delete(foundItem._id); return next; });
-        }
-        const keysToClear = pickItemKeysByItemIdRef.current.get(foundItem._id) || [];
-        if (keysToClear.length > 0) {
-          setNotHereItems((prev) => { const next = { ...prev }; keysToClear.forEach((key) => delete next[key]); return next; });
-        }
-        queueGoogleSyncRef.current?.(foundItem);
-      }
-      triggerHapticFeedback();
-    } else {
+    if (foundItemIndex === undefined) {
       setLastScannedCode(decodedText);
       setLastScanFound(false);
+      setLastScanOnCart(false);
+      return;
     }
-  }, []); // empty deps — reads everything from refs, never recreated
 
-  const exportCSV = useCallback(() => {
-    if (inventoryList.length === 0) return;
-    const foundColumnName = detectedColumns.found || "Found";
-    const exportData = inventoryList.map((item) => { const { _id, _rowIndex, ...exportItem } = item; void _id; void _rowIndex; return setColumnValue(exportItem as Record<string, unknown>, "found", foundIdSet.has(item._id) || !!(item as Record<string, unknown>)[foundColumnName]); });
-    const csv = Papa.unparse(exportData as object[]);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a"); anchor.href = url; anchor.download = generateExportFilename(csvFileName); anchor.click(); URL.revokeObjectURL(url);
-  }, [inventoryList, csvFileName, foundIdSet, detectedColumns]);
+    const foundItem = inv[foundItemIndex];
+    const foundColumnName = detectedColumnsRef.current.found || "Found";
+    const isAlreadyFound = foundIdSetRef.current.has(foundItem._id) || !!(foundItem as Record<string, unknown>)[foundColumnName];
+    const isAlreadyQueued = queuedIdSetRef.current.has(foundItem._id);
+
+    if (pickRunModeRef.current) {
+      const run = pickRunDataRef.current;
+      if (!run) {
+        setLastScannedCode(decodedText);
+        setLastScanFound(false);
+        setLastScanOnCart(true);
+        return;
+      }
+
+      const stackAdaptItemsInOrder: InventoryItem[] = [];
+      run.zones.forEach((zone) => {
+        zone.items.forEach((pi) => {
+          const live = inv.find((x) => x._id === pi._id) || (pi as InventoryItem);
+          const org = normalize(getColumnValue(live as Record<string, unknown>, "organization"));
+          const notHere = !!notHereItemsRef.current[pi._pickItemKey];
+          const finalized = foundIdSetRef.current.has(live._id) || !!(live as Record<string, unknown>)[foundColumnName] || notHere;
+          if (org === "stackadapt" && !finalized) stackAdaptItemsInOrder.push(live);
+        });
+      });
+
+      const nextStackAdapt = stackAdaptItemsInOrder.find((item) => !queuedIdSetRef.current.has(item._id));
+      const scannedOrg = normalize(getColumnValue(foundItem as Record<string, unknown>, "organization"));
+
+      // Only allow scanning the next StackAdapt item at the top of the queue.
+      if (!nextStackAdapt || scannedOrg !== "stackadapt" || foundItem._id !== nextStackAdapt._id) {
+        setLastScannedCode(decodedText);
+        setLastScanFound(false);
+        setLastScanOnCart(true);
+        return;
+      }
+
+      setLastScannedCode(decodedText);
+      setLastScanFound(true);
+      setLastScanOnCart(true);
+      if (!isAlreadyFound && !isAlreadyQueued) {
+        setQueuedIdSet((prev) => { const next = new Set(prev); next.add(foundItem._id); return next; });
+      }
+      triggerHapticFeedback();
+      return;
+    }
+
+    setLastScannedCode(decodedText);
+    setLastScanFound(true);
+    setLastScanOnCart(true);
+    if (!isAlreadyFound) {
+      setFoundIdSet((prev) => { const next = new Set(prev); next.add(foundItem._id); return next; });
+      if (notFoundIdSetRef.current.has(foundItem._id)) {
+        setNotFoundIdSet((prev) => { const next = new Set(prev); next.delete(foundItem._id); return next; });
+      }
+      const keysToClear = pickItemKeysByItemIdRef.current.get(foundItem._id) || [];
+      if (keysToClear.length > 0) {
+        setNotHereItems((prev) => { const next = { ...prev }; keysToClear.forEach((key) => delete next[key]); return next; });
+      }
+      queueGoogleSyncRef.current?.(foundItem);
+    }
+    triggerHapticFeedback();
+  }, []); // empty deps — reads everything from refs, never recreated
 
   // Google Sheets Handlers
   const updateGoogleState = useCallback((updates: Partial<GoogleSheetsState>) => { setGoogleState((prev) => ({ ...prev, ...updates })); }, []);
@@ -1137,12 +1222,13 @@ export default function InventoryScanner() {
       const { dataList, columns, uniqueOrganizations, initialFoundMap, initialFoundCount, initialFoundIds } = result as { dataList: InventoryItem[]; columns: Record<string, string>; uniqueOrganizations: Set<string>; initialFoundMap: Map<string, boolean>; initialFoundCount: number; initialFoundIds: Set<string> };
       const foundColName = columns.found || "Found";
       const foundColIdx = GSheets.findColumnIndex(sheetData.headers, foundColName);
-      setInventoryList(dataList); setFoundMap(initialFoundMap); setFoundIdSet(initialFoundIds); setCsvFileName(`${googleState.spreadsheetTitle} - ${googleState.sheetTab}`); setFoundCount(initialFoundCount); setDetectedColumns(columns); setOrganizations(Array.from(uniqueOrganizations).sort()); setPickRunMode(false); setPickRunData(null); setDeployReasonFilter("ALL"); buildLookupMap(dataList);
+      setInventoryList(dataList); setFoundMap(initialFoundMap); setFoundIdSet(initialFoundIds); setCsvFileName(`${googleState.spreadsheetTitle} - ${googleState.sheetTab}`); setFoundCount(initialFoundCount); setDetectedColumns(columns); setOrganizations(Array.from(uniqueOrganizations).sort()); setPickRunMode(false); setPickRunData(null); buildLookupMap(dataList);
       updateGoogleState({ isLoading: false, error: "", sheetHeaders: sheetData.headers, foundColumnIndex: foundColIdx > 0 ? foundColIdx : -1 });
       setUploadStatus(`Loaded ${dataList.length} items from Google Sheet "${googleState.spreadsheetTitle}" → "${googleState.sheetTab}"`);
       window.clearTimeout(uploadStatusTimerRef.current);
       uploadStatusTimerRef.current = window.setTimeout(() => setUploadStatus(""), 2000);
       setLastScannedCode("");
+      setLastScanOnCart(false);
       
     } catch (error) { updateGoogleState({ isLoading: false, error: `Failed: ${(error as Error).message}` }); }
   }, [googleState.spreadsheetId, googleState.sheetTab, googleState.spreadsheetTitle, updateGoogleState, processSheetData, buildLookupMap]);
@@ -1211,11 +1297,10 @@ export default function InventoryScanner() {
   const handleGoogleDisconnect = useCallback(() => { updateGoogleState({ isConnected: false, spreadsheetId: "", spreadsheetTitle: "", sheetTab: "", sheetTabs: [], realtimeSync: false, error: "", sheetHeaders: [], foundColumnIndex: -1 }); }, [updateGoogleState]);
 
   const generatePickRun = useCallback(() => {
-    const filteredItems = inventoryList.filter((item) => matchesDeployReasonFilter(item, deployReasonFilter));
-    if (filteredItems.length === 0) return;
+    if (inventoryList.length === 0) return;
     const zoneGroups: Record<string, PickRunZone> = {}; const unmapped: InventoryItem[] = [];
     const initialNotHere: Record<string, boolean> = {};
-    filteredItems.forEach((item) => {
+    inventoryList.forEach((item) => {
       const org = getColumnValue(item, "organization"); const entries = getZonesForOrg(org);
       if (entries.length > 0) {
         entries.forEach((entry) => {
@@ -1230,9 +1315,9 @@ export default function InventoryScanner() {
     });
     Object.values(zoneGroups).forEach((g) => g.items.sort((a, b) => a._shelfPos - b._shelfPos));
     setPickRunData({ zones: Object.values(zoneGroups).sort((a, b) => a.order - b.order), unmapped });
-    setNotHereItems(initialNotHere); setPickRunMode(true); setLastScannedCode(""); setLastScanFound(false);
+    setNotHereItems(initialNotHere); setPickRunMode(true); setLastScannedCode(""); setLastScanFound(false); setLastScanOnCart(false);
     
-  }, [inventoryList, deployReasonFilter, notFoundIdSet]);
+  }, [inventoryList, notFoundIdSet]);
 
   // Auto-start put away run when a new cart is loaded
   useEffect(() => {
@@ -1241,6 +1326,13 @@ export default function InventoryScanner() {
       generatePickRun();
     }
   }, [inventoryList.length, generatePickRun]);
+
+  // Safety net: if inventory exists but run data is missing, regenerate so UI never appears blank
+  useEffect(() => {
+    if (inventoryList.length > 0 && !pickRunData) {
+      generatePickRun();
+    }
+  }, [inventoryList.length, pickRunData, generatePickRun]);
 
   // Global keyboard capture (scanner works anywhere without manually focusing the scan box)
   useEffect(() => {
@@ -1296,12 +1388,9 @@ export default function InventoryScanner() {
   }, [inventoryList.length, processScannedCode]); // processScannedCode is stable (empty deps)
 
 
-  const previousDeployReasonFilter = useRef(deployReasonFilter);
   useEffect(() => {
-    if (pickRunMode && previousDeployReasonFilter.current !== deployReasonFilter) { previousDeployReasonFilter.current = deployReasonFilter; generatePickRun(); }
     if (!pickRunMode) setPickRunData(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deployReasonFilter, pickRunMode]);
+  }, [pickRunMode]);
 
   return (
     <Box maw={700} mx="auto" p="md" pb="xl" style={{ minHeight: "100vh" }}>
@@ -1352,116 +1441,116 @@ export default function InventoryScanner() {
           </Alert>
         )}
 
-        {inventoryList.length > 0 && pickRunMode && pickRunData && (
+        {inventoryList.length > 0 && pickRunData && (
           <PickRunView
-            pickRunData={pickRunData} inventoryList={inventoryList} detectedColumns={detectedColumns} foundIdSet={deferredFoundIdSet} onClose={() => setPickRunMode(false)} lastScannedCode={lastScannedCode} lastScanFound={lastScanFound} notHereItems={notHereItems} onScan={processScannedCode}
-            onNotHere={(key, isNotHere, itemId) => {
-              setNotHereItems((prev) => { const next = { ...prev }; if (isNotHere) next[key] = true; else delete next[key]; return next; });
-              if (itemId) setNotFoundIdSet((prev) => { const next = new Set(prev); if (isNotHere) next.add(itemId); else next.delete(itemId); return next; });
+            pickRunData={pickRunData} inventoryList={inventoryList} detectedColumns={detectedColumns} foundIdSet={deferredFoundIdSet} lastScannedCode={lastScannedCode} lastScanFound={lastScanFound} lastScanOnCart={lastScanOnCart} notHereItems={notHereItems} queuedIdSet={queuedIdSet} onScan={processScannedCode}
+            onPutAway={(itemId) => {
+              setQueuedIdSet((prev) => {
+                if (!prev.has(itemId)) return prev;
+                const next = new Set(prev);
+                next.delete(itemId);
+                return next;
+              });
+              setFoundIdSet((prev) => {
+                const next = new Set(prev);
+                next.add(itemId);
+                return next;
+              });
+              if (notFoundIdSetRef.current.has(itemId)) {
+                setNotFoundIdSet((prev) => { const next = new Set(prev); next.delete(itemId); return next; });
+              }
+              const item = inventoryListRef.current.find((x) => x._id === itemId);
+              if (item) queueGoogleSyncRef.current?.(item);
             }}
           />
         )}
 
-        {/* Between-runs screen — cart loaded but run not active */}
-        {!pickRunMode && inventoryList.length > 0 && (
-          <Stack gap="md">
-            <Paper radius="xl" p="lg" withBorder style={{ backgroundColor: "var(--section-bg)", borderColor: "var(--item-border)" }}>
-              <Group justify="space-between" align="center" mb="sm">
-                <Group gap="xs">
-                  <ThemeIcon radius="xl" size={32} color="indigo" variant="light">
-                    <IconClipboardList size={16} />
-                  </ThemeIcon>
-                  <Text fw={700} size="sm" style={{ color: "var(--text-primary)" }}>Cart loaded</Text>
-                </Group>
-                <Text size="xs" c="dimmed" truncate style={{ maxWidth: 200 }}>{csvFileName}</Text>
-              </Group>
-              <SimpleGrid cols={3} spacing="xs">
-                {[
-                  { value: inventoryList.length, label: "Devices", color: "var(--text-primary)" },
-                  { value: foundCount, label: "Put Away", color: "#16a34a" },
-                  { value: inventoryList.length - foundCount, label: "Remaining", color: "var(--text-secondary)" },
-                ].map((s) => (
-                  <Paper key={s.label} p="xs" radius="lg" withBorder style={{ backgroundColor: "var(--item-bg)", textAlign: "center" }}>
-                    <Text size="xl" fw={900} style={{ color: s.color, lineHeight: 1.1 }}>{s.value}</Text>
-                    <Text size="xs" fw={500} style={{ color: "var(--text-muted)", marginTop: 2 }}>{s.label}</Text>
-                  </Paper>
-                ))}
-              </SimpleGrid>
-            </Paper>
-
-            <Button
-              fullWidth size="lg"
-              leftSection={<IconRoute size={20} />}
-              onClick={() => { if (pickRunData) { setPickRunMode(true); } else generatePickRun(); }}
-              color="orange"
-              variant="filled"
-              radius="xl"
-              style={{ boxShadow: "var(--card-shadow)" }}
-            >
-              {pickRunData ? "Resume Put Away Run" : "Start Put Away Run"}
-            </Button>
-
-            <SimpleGrid cols={2} spacing="sm">
-              <Button leftSection={<IconDownload size={16} />} onClick={exportCSV} variant="light" color="indigo" radius="xl">Export CSV</Button>
-              <Button leftSection={<IconTrash size={16} />} variant="light" color="red" radius="xl" onClick={() => setShowResetConfirm(true)}>Load New Cart</Button>
-            </SimpleGrid>
-          </Stack>
-        )}
-
-        {/* Upload screen — no cart loaded */}
-        {!pickRunMode && inventoryList.length === 0 && (
-          <>
-            <Divider my="xl" labelPosition="center" label={
-              <Text size="xs" fw={700} tt="uppercase" style={{ color: "var(--divider-color)", letterSpacing: "0.08em" }}>Upload Cart</Text>
-            } />
-            <Stack gap="md">
-              <Paper radius="xl" p="lg" style={{ border: "1.5px dashed var(--item-border)", backgroundColor: "var(--section-bg)" }}>
-                <Group gap="md" mb="sm">
-                  <ThemeIcon radius="xl" size={44} color="indigo" variant="light" style={{ flexShrink: 0 }}>
-                    <IconUpload size={20} />
-                  </ThemeIcon>
-                  <div>
-                    <Text fw={700} size="sm" style={{ color: "#3730a3" }}>Upload Device List (CSV)</Text>
-                    <Text size="xs" c="dimmed">Devices to put away from cart</Text>
-                  </div>
-                </Group>
-                <FileInput
-                  ref={fileInputRef as any}
-                  placeholder="Choose file…"
-                  accept=".csv,.CSV,.txt,.tsv,.tab"
-                  leftSection={<IconUpload size={15} />}
-                  onChange={onFileChange}
-                  radius="xl"
-                  styles={{ input: { backgroundColor: "var(--card-bg)", border: "1.5px solid #e0e7ff" } }}
-                />
-                <Text size="xs" c="dimmed" ta="center" mt="xs">Supports: Inventory ID · Serial Number · Product Title · Organization</Text>
-              </Paper>
-              <Divider label={<Text size="xs" c="dimmed" fw={500}>or connect Google Sheets</Text>} labelPosition="center" />
-              <GoogleSheetsConnector
-                googleState={googleState}
-                onSignIn={handleGoogleSignIn}
-                onSignOut={handleGoogleSignOut}
-                onSelectSpreadsheet={handleGoogleSelectSpreadsheet}
-                onSelectTab={handleGoogleSelectTab}
-                onLoadSheet={handleGoogleLoadSheet}
-                onToggleSync={handleGoogleToggleSync}
-                onExportToSheet={handleGoogleExportToSheet}
-                onDisconnect={handleGoogleDisconnect}
-                hasInventory={inventoryList.length > 0}
-                foundCount={foundCount}
-                totalCount={inventoryList.length}
-              />
+        {inventoryList.length > 0 && !pickRunData && (
+          <Paper radius="xl" p="lg" withBorder>
+            <Stack gap="sm" align="center">
+              <Loader size="sm" />
+              <Text size="sm" c="dimmed">Preparing put away run…</Text>
+              <Button radius="xl" variant="light" onClick={() => generatePickRun()}>
+                Retry
+              </Button>
             </Stack>
-          </>
+          </Paper>
         )}
+
+        <Divider
+          my="xl"
+          labelPosition="center"
+          label={<Text size="xs" fw={700} tt="uppercase" style={{ color: "var(--divider-color)", letterSpacing: "0.08em" }}>{inventoryList.length > 0 ? "Cart Controls" : "Upload Cart"}</Text>}
+        />
+
+        <Stack gap="md">
+          <Paper radius="xl" p="lg" style={{ border: "1.5px dashed var(--item-border)", backgroundColor: "var(--section-bg)" }}>
+            <Group justify="space-between" align="flex-start" mb="sm">
+              <Group gap="md">
+                <ThemeIcon radius="xl" size={44} color="indigo" variant="light" style={{ flexShrink: 0 }}>
+                  <IconUpload size={20} />
+                </ThemeIcon>
+                <div>
+                  <Text fw={700} size="sm" style={{ color: "#3730a3" }}>{inventoryList.length > 0 ? "Load or Replace Cart (CSV)" : "Upload Device List (CSV)"}</Text>
+                  <Text size="xs" c="dimmed">{inventoryList.length > 0 ? (csvFileName || "Current cart loaded") : "Devices to put away from cart"}</Text>
+                </div>
+              </Group>
+              {inventoryList.length > 0 && (
+                <Group gap="xs">
+                  <Button
+                    leftSection={<IconDownload size={14} />}
+                    color="blue"
+                    variant="light"
+                    radius="xl"
+                    size="xs"
+                    onClick={handleExportCsv}
+                  >
+                    Export CSV
+                  </Button>
+                  <Button color="red" variant="light" radius="xl" size="xs" onClick={() => setShowResetConfirm(true)}>
+                    Reset Cart
+                  </Button>
+                </Group>
+              )}
+            </Group>
+
+            <FileInput
+              ref={fileInputRef as any}
+              placeholder="Choose file…"
+              accept=".csv,.CSV,.txt,.tsv,.tab"
+              leftSection={<IconUpload size={15} />}
+              onChange={onFileChange}
+              radius="xl"
+              styles={{ input: { backgroundColor: "var(--card-bg)", border: "1.5px solid #e0e7ff" } }}
+            />
+            <Text size="xs" c="dimmed" ta="center" mt="xs">Supports: Inventory ID · Serial Number · Product Title · Organization</Text>
+
+          </Paper>
+
+          <Divider label={<Text size="xs" c="dimmed" fw={500}>Google Sheets</Text>} labelPosition="center" />
+          <GoogleSheetsConnector
+            googleState={googleState}
+            onSignIn={handleGoogleSignIn}
+            onSignOut={handleGoogleSignOut}
+            onSelectSpreadsheet={handleGoogleSelectSpreadsheet}
+            onSelectTab={handleGoogleSelectTab}
+            onLoadSheet={handleGoogleLoadSheet}
+            onToggleSync={handleGoogleToggleSync}
+            onExportToSheet={handleGoogleExportToSheet}
+            onDisconnect={handleGoogleDisconnect}
+            hasInventory={inventoryList.length > 0}
+            foundCount={foundCount}
+            totalCount={inventoryList.length}
+          />
+        </Stack>
       </Card>
 
-      <Modal opened={showResetConfirm} onClose={() => setShowResetConfirm(false)} title={<Text fw={700} size="md">Load New Cart?</Text>} centered radius="xl">
+      <Modal opened={showResetConfirm} onClose={() => setShowResetConfirm(false)} title={<Text fw={700} size="md">Reset Cart?</Text>} centered radius="xl">
         <Stack gap="md">
           <Text size="sm" c="dimmed" lh={1.6}>This will clear the current cart and all put away progress. This cannot be undone.</Text>
           <SimpleGrid cols={2} spacing="sm">
             <Button variant="default" radius="xl" onClick={() => { setShowResetConfirm(false); }}>Cancel</Button>
-            <Button color="red" radius="xl" onClick={() => { setShowResetConfirm(false); clearInventory(); }}>Yes, Load New</Button>
+            <Button color="red" radius="xl" onClick={() => { setShowResetConfirm(false); clearInventory(); }}>Yes, Reset</Button>
           </SimpleGrid>
         </Stack>
       </Modal>
