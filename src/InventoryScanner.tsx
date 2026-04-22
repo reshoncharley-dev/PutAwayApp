@@ -934,9 +934,10 @@ export default function InventoryScanner() {
   const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
   const [uploadStatus, setUploadStatus] = useState("");
   const [csvFileName, setCsvFileName] = useState("");
-  const [lastScannedCode, setLastScannedCode] = useState("");
-  const [lastScanFound, setLastScanFound] = useState(false);
-  const [lastScanOnCart, setLastScanOnCart] = useState(false);
+  const [scanResult, setScanResult] = useState<{ code: string; found: boolean; onCart: boolean }>({ code: "", found: false, onCart: false });
+  const lastScannedCode = scanResult.code;
+  const lastScanFound = scanResult.found;
+  const lastScanOnCart = scanResult.onCart;
   const [foundCount, setFoundCount] = useState(0);
   const [foundIdSet, setFoundIdSet] = useState<Set<string>>(new Set());
   const [notFoundIdSet, setNotFoundIdSet] = useState<Set<string>>(new Set());
@@ -975,6 +976,32 @@ export default function InventoryScanner() {
 
 
   const deferredFoundIdSet = useDeferredValue(foundIdSet);
+  const deferredQueuedIdSet = useDeferredValue(queuedIdSet);
+
+  // Pre-compute the next eligible StackAdapt item so processScannedCode is O(1) instead of looping all zones
+  const nextStackAdaptRef = useRef<InventoryItem | null>(null);
+  useEffect(() => {
+    const run = pickRunData;
+    const inv = inventoryList;
+    if (!run || inv.length === 0) { nextStackAdaptRef.current = null; return; }
+    const foundCol = detectedColumns.found || "Found";
+    let next: InventoryItem | null = null;
+    for (const zone of run.zones) {
+      for (const pi of zone.items) {
+        const live = inv.find((x) => x._id === pi._id) || (pi as InventoryItem);
+        const org = normalize(getColumnValue(live as Record<string, unknown>, "organization"));
+        if (org !== "stackadapt") continue;
+        const finalized = foundIdSet.has(live._id) || !!(live as Record<string, unknown>)[foundCol] || !!notHereItems[pi._pickItemKey];
+        if (finalized) continue;
+        if (queuedIdSet.has(live._id)) continue;
+        next = live;
+        break;
+      }
+      if (next) break;
+    }
+    nextStackAdaptRef.current = next;
+  }, [pickRunData, inventoryList, foundIdSet, queuedIdSet, notHereItems, detectedColumns]);
+
   const buildLookupMap = useCallback((dataList: InventoryItem[]) => {
     const map = new Map<string, number>();
     dataList.forEach((item, index) => { const inv = normalize(getColumnValue(item, "inventoryId")); const sn = normalize(getColumnValue(item, "serialNumber")); if (inv) map.set(inv, index); if (sn) map.set(sn, index); });
@@ -1018,7 +1045,7 @@ export default function InventoryScanner() {
   useEffect(() => { pickRunModeRef.current = pickRunMode; }, [pickRunMode]);
 
   const clearInventory = useCallback(() => {
-    setInventoryList([]); setUploadStatus(""); setCsvFileName(""); setLastScannedCode(""); setLastScanFound(false); setLastScanOnCart(false); setSearchQuery(""); setFoundCount(0); setDetectedColumns({}); setOrganizations([]); setFoundMap(new Map()); setFoundIdSet(new Set()); setNotFoundIdSet(new Set()); setQueuedIdSet(new Set()); setPickRunMode(false); setPickRunData(null); lookupMapRef.current = new Map(); clearStorage();
+    setInventoryList([]); setUploadStatus(""); setCsvFileName(""); setScanResult({ code: "", found: false, onCart: false }); setSearchQuery(""); setFoundCount(0); setDetectedColumns({}); setOrganizations([]); setFoundMap(new Map()); setFoundIdSet(new Set()); setNotFoundIdSet(new Set()); setQueuedIdSet(new Set()); setPickRunMode(false); setPickRunData(null); lookupMapRef.current = new Map(); clearStorage();
     if (fileInputRef.current) fileInputRef.current.value = "";
     setGoogleState((prev) => ({ ...prev, realtimeSync: false, sheetHeaders: [], foundColumnIndex: -1 }));
   }, [setSearchQuery]);
@@ -1098,8 +1125,7 @@ export default function InventoryScanner() {
         setInventoryList(dataList); setFoundMap(initialFoundMap); setFoundIdSet(initialFoundIds); setCsvFileName(file.name); setFoundCount(initialFoundCount); setOrganizations(Array.from(uniqueOrganizations).sort()); setPickRunMode(false); setPickRunData(null); buildLookupMap(dataList);
         autoStartRef.current = true;
         setUploadStatus(`Loaded ${dataList.length} devices for put away`);
-        setLastScannedCode("");
-        setLastScanOnCart(false);
+        setScanResult({ code: "", found: false, onCart: false });
         
       },
       error: (err) => { setUploadStatus(`Error: ${err.message}`); clearInventory(); },
@@ -1108,13 +1134,11 @@ export default function InventoryScanner() {
 
   const processScannedCode = useCallback((decodedText: string) => {
     const inv = inventoryListRef.current;
-    if (inv.length === 0) { setLastScannedCode(decodedText); setLastScanFound(false); setLastScanOnCart(false); return; }
+    if (inv.length === 0) { setScanResult({ code: decodedText, found: false, onCart: false }); return; }
     const code = normalize(decodedText);
     const foundItemIndex = lookupMapRef.current.get(code);
     if (foundItemIndex === undefined) {
-      setLastScannedCode(decodedText);
-      setLastScanFound(false);
-      setLastScanOnCart(false);
+      setScanResult({ code: decodedText, found: false, onCart: false });
       return;
     }
 
@@ -1126,46 +1150,28 @@ export default function InventoryScanner() {
     if (pickRunModeRef.current) {
       // Keep already-queued/already-put-away items green when re-scanned.
       if (isAlreadyQueued || isAlreadyFound) {
-        setLastScannedCode(decodedText);
-        setLastScanFound(true);
-        setLastScanOnCart(true);
+        setScanResult({ code: decodedText, found: true, onCart: true });
         triggerHapticFeedback();
         return;
       }
 
       const run = pickRunDataRef.current;
       if (!run) {
-        setLastScannedCode(decodedText);
-        setLastScanFound(false);
-        setLastScanOnCart(true);
+        setScanResult({ code: decodedText, found: false, onCart: true });
         return;
       }
 
-      const stackAdaptItemsInOrder: InventoryItem[] = [];
-      run.zones.forEach((zone) => {
-        zone.items.forEach((pi) => {
-          const live = inv.find((x) => x._id === pi._id) || (pi as InventoryItem);
-          const org = normalize(getColumnValue(live as Record<string, unknown>, "organization"));
-          const notHere = !!notHereItemsRef.current[pi._pickItemKey];
-          const finalized = foundIdSetRef.current.has(live._id) || !!(live as Record<string, unknown>)[foundColumnName] || notHere;
-          if (org === "stackadapt" && !finalized) stackAdaptItemsInOrder.push(live);
-        });
-      });
-
-      const nextStackAdapt = stackAdaptItemsInOrder.find((item) => !queuedIdSetRef.current.has(item._id));
+      // Use pre-computed next StackAdapt item (O(1) instead of looping all zones)
+      const nextStackAdapt = nextStackAdaptRef.current;
       const scannedOrg = normalize(getColumnValue(foundItem as Record<string, unknown>, "organization"));
 
       // Only allow scanning the next StackAdapt item at the top of the queue.
       if (!nextStackAdapt || scannedOrg !== "stackadapt" || foundItem._id !== nextStackAdapt._id) {
-        setLastScannedCode(decodedText);
-        setLastScanFound(false);
-        setLastScanOnCart(true);
+        setScanResult({ code: decodedText, found: false, onCart: true });
         return;
       }
 
-      setLastScannedCode(decodedText);
-      setLastScanFound(true);
-      setLastScanOnCart(true);
+      setScanResult({ code: decodedText, found: true, onCart: true });
       if (!isAlreadyFound && !isAlreadyQueued) {
         setQueuedIdSet((prev) => { const next = new Set(prev); next.add(foundItem._id); return next; });
       }
@@ -1173,9 +1179,7 @@ export default function InventoryScanner() {
       return;
     }
 
-    setLastScannedCode(decodedText);
-    setLastScanFound(true);
-    setLastScanOnCart(true);
+    setScanResult({ code: decodedText, found: true, onCart: true });
     if (!isAlreadyFound) {
       setFoundIdSet((prev) => { const next = new Set(prev); next.add(foundItem._id); return next; });
       if (notFoundIdSetRef.current.has(foundItem._id)) {
@@ -1252,8 +1256,7 @@ export default function InventoryScanner() {
       setUploadStatus(`Loaded ${dataList.length} items from Google Sheet "${googleState.spreadsheetTitle}" → "${googleState.sheetTab}"`);
       window.clearTimeout(uploadStatusTimerRef.current);
       uploadStatusTimerRef.current = window.setTimeout(() => setUploadStatus(""), 2000);
-      setLastScannedCode("");
-      setLastScanOnCart(false);
+      setScanResult({ code: "", found: false, onCart: false });
       
     } catch (error) { updateGoogleState({ isLoading: false, error: `Failed: ${(error as Error).message}` }); }
   }, [googleState.spreadsheetId, googleState.sheetTab, googleState.spreadsheetTitle, updateGoogleState, processSheetData, buildLookupMap]);
@@ -1340,7 +1343,7 @@ export default function InventoryScanner() {
     });
     Object.values(zoneGroups).forEach((g) => g.items.sort((a, b) => a._shelfPos - b._shelfPos));
     setPickRunData({ zones: Object.values(zoneGroups).sort((a, b) => a.order - b.order), unmapped });
-    setNotHereItems(initialNotHere); setPickRunMode(true); setLastScannedCode(""); setLastScanFound(false); setLastScanOnCart(false);
+    setNotHereItems(initialNotHere); setPickRunMode(true); setScanResult({ code: "", found: false, onCart: false });
     
   }, [inventoryList, notFoundIdSet]);
 
@@ -1375,7 +1378,7 @@ export default function InventoryScanner() {
       if (clearTimer) window.clearTimeout(clearTimer);
       clearTimer = window.setTimeout(() => {
         resetBuffer();
-      }, 200);
+      }, 50);
     };
 
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -1471,7 +1474,7 @@ export default function InventoryScanner() {
 
         {inventoryList.length > 0 && pickRunData && (
           <PickRunView
-            pickRunData={pickRunData} inventoryList={inventoryList} detectedColumns={detectedColumns} foundIdSet={deferredFoundIdSet} lastScannedCode={lastScannedCode} lastScanFound={lastScanFound} lastScanOnCart={lastScanOnCart} notHereItems={notHereItems} queuedIdSet={queuedIdSet} onScan={processScannedCode}
+            pickRunData={pickRunData} inventoryList={inventoryList} detectedColumns={detectedColumns} foundIdSet={deferredFoundIdSet} lastScannedCode={lastScannedCode} lastScanFound={lastScanFound} lastScanOnCart={lastScanOnCart} notHereItems={notHereItems} queuedIdSet={deferredQueuedIdSet} onScan={processScannedCode}
             onPutAway={(itemId) => {
               setQueuedIdSet((prev) => {
                 if (!prev.has(itemId)) return prev;
