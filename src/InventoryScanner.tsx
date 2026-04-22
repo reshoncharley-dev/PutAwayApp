@@ -9,7 +9,7 @@ import {
 } from "@mantine/core";
 import {
   IconCheck, IconX, IconSearch, IconDownload, IconRefresh, IconRoute,
-  IconWalk, IconFilter, IconClipboardList, IconUpload,
+  IconWalk, IconClipboardList, IconUpload,
   IconAlertTriangle, IconCloudUpload, IconChevronDown,
   IconFileSpreadsheet, IconTrash, IconPackage, IconSun, IconMoon,
 } from "@tabler/icons-react";
@@ -30,7 +30,6 @@ interface GoogleSheetsState { isSignedIn: boolean; isConnected: boolean; isLoadi
 // ============================================================
 // Constants
 // ============================================================
-const PAGE_SIZE = 30;
 const STORAGE_KEY = "inventoryScanner_savedState";
 const VIBRATE_DURATION = 200;
 
@@ -181,7 +180,7 @@ const formatCategory = (value: unknown): string => {
 
 const generateExportFilename = (csvFileName: string): string => {
   const baseName = csvFileName ? csvFileName.replace(/\.[^/.]+$/, "") : "inventory";
-  return `Items_found_${baseName}_${new Date().toISOString().slice(0, 10)}.csv`;
+  return `put_away_${baseName}_${new Date().toISOString().slice(0, 10)}.csv`;
 };
 const triggerHapticFeedback = (): void => { if ("vibrate" in navigator) navigator.vibrate(VIBRATE_DURATION); };
 const parseBoolean = (value: unknown): boolean => { if (typeof value === "boolean") return value; if (typeof value === "string") { const n = value.toLowerCase().trim(); return n === "true" || n === "1" || n === "yes"; } return false; };
@@ -214,7 +213,7 @@ const useInventorySearch = (inventoryList: InventoryItem[]) => {
 // Sub-Components
 // ============================================================
 
-const ScanResult: React.FC<{ scannedCode: string; found: boolean; scannedItem?: InventoryItem | null }> = ({ scannedCode, found, scannedItem }) => {
+const ScanResult: React.FC<{ scannedCode: string; found: boolean; scannedItem?: InventoryItem | null; queued?: boolean }> = ({ scannedCode, found, scannedItem, queued = false }) => {
   if (!scannedCode) return null;
   const scheme = useComputedColorScheme("light");
   const isDark = scheme === "dark";
@@ -253,7 +252,7 @@ const ScanResult: React.FC<{ scannedCode: string; found: boolean; scannedItem?: 
         <div style={{ flex: 1, minWidth: 0 }}>
           <Group gap="xs" align="center" mb={2}>
             <Text fw={800} ff="monospace" size="lg" style={{ color: textColor }}>{scannedCode}</Text>
-            <Badge color={found ? "green" : "red"} variant="filled" size="sm" radius="xl">{found ? "✓ Found" : "✗ Not Found"}</Badge>
+            <Badge color={found ? "green" : "red"} variant="filled" size="sm" radius="xl">{found ? "✓ Put Away" : "✗ Not on Cart"}</Badge>
           </Group>
           {productTitle && productTitle !== "N/A" && (
             <Text size="sm" fw={500} style={{ color: subColor }} truncate>{productTitle}</Text>
@@ -280,110 +279,6 @@ const ScanResult: React.FC<{ scannedCode: string; found: boolean; scannedItem?: 
     </Paper>
   );
 };
-
-const InventoryItemRow = memo<{ item: InventoryItem; isFound: boolean; isNotFound: boolean }>(({ item, isFound, isNotFound }) => {
-  const scheme = useComputedColorScheme("light");
-  const isDarkRow = scheme === "dark";
-
-  const organization = getColumnValue(item, "organization");
-  const deployReason = getColumnValue(item, "deployReason");
-  const deployStatus = getColumnValue(item, "deployStatus");
-  const category = getColumnValue(item, "category");
-  const serial = safeValue(item, "serialNumber");
-  const inventoryId = safeValue(item, "inventoryId");
-  const productTitle = safeValue(item, "productTitle");
-
-  const drNorm = deployReason?.toString().trim().toUpperCase();
-  const isRecycle = drNorm === "RECYCLING_REQUESTED";
-
-  const statusLabel = isFound ? "Found" : isNotFound ? "Not Found" : "Pending";
-  const statusIcon = isFound ? <IconCheck size={12} /> : isNotFound ? <IconX size={12} /> : <IconPackage size={12} />;
-
-  const cardBg = isFound
-    ? (isDarkRow ? "rgba(34, 197, 94, 0.10)" : "#f0fdf4")
-    : isNotFound
-      ? (isDarkRow ? "rgba(239, 68, 68, 0.10)" : "#fef2f2")
-      : (isDarkRow ? "#1f2937" : "#f8fafc");
-
-  const accentColor = isFound ? "#22c55e" : isNotFound ? "#ef4444" : (isDarkRow ? "#64748b" : "#94a3b8");
-  const subText = isDarkRow ? "rgba(226,232,240,0.8)" : "rgba(51,65,85,0.75)";
-
-  return (
-    <Paper
-      p="md"
-      mb="xs"
-      radius="lg"
-      withBorder
-      style={{
-        position: "relative",
-        overflow: "hidden",
-        backgroundColor: cardBg,
-        borderColor: isDarkRow ? "rgba(255,255,255,0.14)" : "rgba(15,23,42,0.12)",
-      }}
-    >
-      <Box
-        style={{
-          position: "absolute",
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: 4,
-          backgroundColor: accentColor,
-        }}
-      />
-
-      <Group justify="space-between" align="flex-start" wrap="nowrap" gap="sm" style={{ paddingLeft: 8 }}>
-        <Stack gap={6} style={{ flex: 1, minWidth: 0 }}>
-          <Text fw={700} size="sm" style={{ color: "var(--text-primary)", lineHeight: 1.35, wordBreak: "break-word" }}>
-            {productTitle}
-          </Text>
-
-          <Group gap={6} style={{ flexWrap: "wrap" }}>
-            <Badge size="sm" variant="light" color="indigo" radius="xl" ff="monospace">
-              SN: {serial}
-            </Badge>
-            <Badge size="sm" variant="light" color="lime" radius="xl" ff="monospace">
-              ID: {inventoryId}
-            </Badge>
-            {organization && organization !== "N/A" && (
-              <Badge size="sm" variant="light" color="orange" radius="xl">
-                {organization}
-              </Badge>
-            )}
-            {category && category !== "N/A" && (
-              <Badge size="sm" variant="light" color="pink" radius="xl">
-                {formatCategory(category)}
-              </Badge>
-            )}
-            {deployReason && deployReason !== "N/A" && (
-              <Badge size="sm" variant="light" color={isRecycle ? "yellow" : "red"} radius="xl">{formatDeployReason(deployReason)}</Badge>
-            )}
-            {deployStatus && deployStatus !== "N/A" && (
-              <Badge size="sm" variant="light" color={deployStatus.toString().toUpperCase() === "AVAILABLE" ? "teal" : "violet"} radius="xl">{formatDeployStatus(deployStatus)}</Badge>
-            )}
-          </Group>
-        </Stack>
-
-        <Stack gap={4} align="flex-end" style={{ flexShrink: 0 }}>
-          <Badge
-            size="sm"
-            radius="xl"
-            variant={isFound || isNotFound ? "filled" : "light"}
-            color={isFound ? "green" : isNotFound ? "red" : "gray"}
-            leftSection={statusIcon}
-          >
-            {statusLabel}
-          </Badge>
-          {!isFound && !isNotFound && (
-            <Text size="xs" style={{ color: subText }}>
-              Awaiting scan
-            </Text>
-          )}
-        </Stack>
-      </Group>
-    </Paper>
-  );
-});
 
 const GoogleSheetsConnector: React.FC<{
   googleState: GoogleSheetsState;
@@ -691,7 +586,7 @@ const VirtualizedPickItems = memo<{
                     color={isFound ? "green" : isNotHere ? "red" : "gray"}
                     leftSection={isFound ? <IconCheck size={12} /> : isNotHere ? <IconX size={12} /> : <IconPackage size={12} />}
                   >
-                    {isFound ? "Found" : isNotHere ? "Not Found" : "Pending"}
+                    {isFound ? "Put Away" : isNotHere ? "Not Here" : "To Put Away"}
                   </Badge>
 
                   {!isFound && (
@@ -726,17 +621,13 @@ const PickRunView: React.FC<{
   inventoryList: InventoryItem[];
   detectedColumns: Record<string, string>;
   foundIdSet: Set<string>;
-  notFoundIdSet: Set<string>;
-  deployReasonFilter: string;
-  deployReasonOptions: Array<{ value: string; label: string }>;
-  onDeployReasonChange: (v: string) => void;
   onClose: () => void;
   lastScannedCode: string;
   lastScanFound: boolean;
   notHereItems: Record<string, boolean>;
   onNotHere: (key: string, isNotHere: boolean, itemId: string) => void;
   onScan: (code: string) => void;
-}> = ({ pickRunData, inventoryList, detectedColumns, foundIdSet, deployReasonFilter, deployReasonOptions, onDeployReasonChange, onClose, lastScannedCode, lastScanFound, notHereItems, onNotHere, onScan }) => {
+}> = ({ pickRunData, inventoryList, detectedColumns, foundIdSet, onClose, lastScannedCode, lastScanFound, notHereItems, onNotHere, onScan }) => {
   const [expandedZones, setExpandedZones] = useState<Record<string, boolean>>({}); // collapsed by default for performance
   const inventoryById = useMemo(() => { const map = new Map<string, InventoryItem>(); inventoryList.forEach((item) => map.set(item._id, item)); return map; }, [inventoryList]);
   const foundColumnName = detectedColumns.found || "Found";
@@ -814,15 +705,6 @@ const PickRunView: React.FC<{
   return (
     <Stack gap="md">
 
-      <Select
-        label="Deploy Reason Filter"
-        value={deployReasonFilter}
-        onChange={(v) => v && onDeployReasonChange(v)}
-        data={deployReasonOptions}
-        leftSection={<IconFilter size={15} />}
-        radius="xl"
-      />
-
       {/* Header */}
       <Paper radius="xl" p="lg" withBorder style={{ backgroundColor: "rgba(249,115,22,0.08)", borderColor: "rgba(249,115,22,0.25)", boxShadow: "var(--card-shadow)" }}>
         <Group justify="space-between" mb="sm" align="center">
@@ -832,8 +714,7 @@ const PickRunView: React.FC<{
             </ThemeIcon>
             <div>
               <Group gap="xs" align="center">
-                <Text size="lg" fw={800} style={{ color: "var(--text-primary)", lineHeight: 1.1 }}>Pick Run</Text>
-                <Text size="sm" style={{ color: "var(--text-secondary)" }}>Aisles 1–14 By Outbound → Aisles 15-21 By Retrievals</Text>
+                <Text size="lg" fw={800} style={{ color: "var(--text-primary)", lineHeight: 1.1 }}>Put Away Run</Text>
               </Group>
               <Text size="xs" style={{ color: "var(--text-muted)" }}>{pct}% complete</Text>
             </div>
@@ -845,7 +726,7 @@ const PickRunView: React.FC<{
         <Progress value={pct} size={6} radius="xl" mb="md" color="orange" styles={{ root: { backgroundColor: "rgba(249,115,22,0.15)" } }} />
         <SimpleGrid cols={3} spacing="xs">
           {[
-            { value: totalFound, label: "Scanned", color: "#16a34a" },
+            { value: totalFound, label: "Put Away", color: "#16a34a" },
             { value: totalNotHere, label: "Not Here", color: "#dc2626" },
             { value: totalRemaining + unmappedUnfound.length, label: "Remaining", color: "var(--text-primary)" },
           ].map((s) => (
@@ -879,8 +760,8 @@ const PickRunView: React.FC<{
           <ThemeIcon radius="xl" size={56} color="green" variant="filled" mx="auto" mb="sm" style={{ boxShadow: "0 4px 20px rgba(22,163,74,0.35)" }}>
             <IconCheck size={28} />
           </ThemeIcon>
-          <Text size="xl" fw={800} style={{ color: "#15803d" }}>Pick Run Complete!</Text>
-          <Text size="sm" style={{ color: "#166534" }} mt={4}>All {totalItems} items accounted for.</Text>
+          <Text size="xl" fw={800} style={{ color: "#15803d" }}>Put Away Complete!</Text>
+          <Text size="sm" style={{ color: "#166534" }} mt={4}>All {totalItems} devices put away.</Text>
         </Paper>
       )}
 
@@ -1007,9 +888,9 @@ const PickRunView: React.FC<{
             </ThemeIcon>
             <div>
               <Text size="sm" fw={700} style={{ color: "#b91c1c" }}>
-                {totalRemaining + unmappedUnfound.length} items still missing
+                {totalRemaining + unmappedUnfound.length} devices still to put away
               </Text>
-              <Text size="xs" style={{ color: "#991b1b" }}>May be misplaced, checked out, or in a different location.</Text>
+              <Text size="xs" style={{ color: "#991b1b" }}>Check device locations or mark as not here.</Text>
             </div>
           </Group>
         </Paper>
@@ -1018,30 +899,6 @@ const PickRunView: React.FC<{
   );
 };
 
-// ============================================================
-// Infinite Scroll List
-// ============================================================
-const InfiniteScrollList = memo<{
-  items: InventoryItem[];
-  emptyContent: React.ReactNode;
-  isItemFound: (item: InventoryItem) => boolean;
-  isItemNotFound: (item: InventoryItem) => boolean;
-}>(({ items, emptyContent, isItemFound, isItemNotFound }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [items]);
-  const handleScroll = useCallback(() => { const el = containerRef.current; if (!el) return; if (el.scrollHeight - el.scrollTop - el.clientHeight < 100) setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, items.length)); }, [items.length]);
-  const visibleItems = useMemo(() => items.slice(0, visibleCount), [items, visibleCount]);
-  if (items.length === 0) return <Paper p="xl" radius="md" withBorder style={{ textAlign: "center" }}>{emptyContent}</Paper>;
-  return (
-    <ScrollArea.Autosize mah={400} viewportRef={containerRef} onScrollPositionChange={handleScroll} styles={{ root: { border: 'none', boxShadow: 'none', outline: 'none' } }}>
-      <Stack gap={4}>
-        {visibleItems.map((item) => <InventoryItemRow key={item._id} item={item} isFound={isItemFound(item)} isNotFound={isItemNotFound(item)} />)}
-        {visibleCount < items.length && <Text ta="center" c="dimmed" size="xs" p="sm">Scroll down to load more... ({visibleCount} of {items.length})</Text>}
-      </Stack>
-    </ScrollArea.Autosize>
-  );
-});
 
 // ============================================================
 // MAIN COMPONENT
@@ -1061,9 +918,7 @@ export default function InventoryScanner() {
   const [notFoundIdSet, setNotFoundIdSet] = useState<Set<string>>(new Set());
   const [detectedColumns, setDetectedColumns] = useState<Record<string, string>>({});
   const [organizations, setOrganizations] = useState<string[]>([]);
-  const [organizationFilter, setOrganizationFilter] = useState("ALL");
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [showImportSection, setShowImportSection] = useState(false);
   const uploadStatusTimerRef = useRef<number | undefined>(undefined);
   const [pickRunMode, setPickRunMode] = useState(false);
   const [pickRunData, setPickRunData] = useState<PickRunDataType | null>(null);
@@ -1080,6 +935,7 @@ export default function InventoryScanner() {
   const detectedColumnsRef = useRef<Record<string, string>>({});
   const pickRunModeRef = useRef(false);
   const saveTimerRef = useRef<number | undefined>(undefined);
+  const autoStartRef = useRef(false);
 
   const initialClientId = GSheets.getSavedClientId();
   const [googleState, setGoogleState] = useState<GoogleSheetsState>({
@@ -1088,12 +944,9 @@ export default function InventoryScanner() {
   const pendingSyncQueue = useRef<Array<{ itemId: string; rowIndex: number }>>([]);
   const syncInProgress = useRef(false);
   const queueGoogleSyncRef = useRef<((item: InventoryItem) => void) | null>(null);
-  const { searchQuery, setSearchQuery, filteredList } = useInventorySearch(inventoryList);
+  const { setSearchQuery } = useInventorySearch(inventoryList);
 
   const deferredFoundIdSet = useDeferredValue(foundIdSet);
-  const deferredNotFoundIdSet = useDeferredValue(notFoundIdSet);
-  const isItemFound = useCallback((item: InventoryItem) => { const fc = detectedColumns.found || "Found"; return deferredFoundIdSet.has(item._id) || !!(item as Record<string, unknown>)[fc]; }, [deferredFoundIdSet, detectedColumns]);
-  const isItemNotFound = useCallback((item: InventoryItem) => deferredNotFoundIdSet.has(item._id), [deferredNotFoundIdSet]);
   const buildLookupMap = useCallback((dataList: InventoryItem[]) => {
     const map = new Map<string, number>();
     dataList.forEach((item, index) => { const inv = normalize(getColumnValue(item, "inventoryId")); const sn = normalize(getColumnValue(item, "serialNumber")); if (inv) map.set(inv, index); if (sn) map.set(sn, index); });
@@ -1121,7 +974,7 @@ export default function InventoryScanner() {
     saved.inventoryList.forEach((item) => { if ((item as Record<string, unknown>)[foundCol]) restoredFoundMap.set(item._id, true); });
     setFoundMap(restoredFoundMap);
     setTimeout(() => {
-      setUploadStatus(`Session restored — ${saved.inventoryList.length} items loaded`);
+      setUploadStatus(`Session restored — ${saved.inventoryList.length} devices on cart`);
       uploadStatusTimerRef.current = window.setTimeout(() => setUploadStatus(""), 3500);
     }, 0);
   }, [buildLookupMap]);
@@ -1134,7 +987,7 @@ export default function InventoryScanner() {
   useEffect(() => { pickRunModeRef.current = pickRunMode; }, [pickRunMode]);
 
   const clearInventory = useCallback(() => {
-    setInventoryList([]); setUploadStatus(""); setCsvFileName(""); setLastScannedCode(""); setLastScanFound(false); setSearchQuery(""); setFoundCount(0); setDetectedColumns({}); setOrganizations([]); setOrganizationFilter("ALL"); setFoundMap(new Map()); setFoundIdSet(new Set()); setNotFoundIdSet(new Set()); setPickRunMode(false); setPickRunData(null); setDeployReasonFilter("ALL"); lookupMapRef.current = new Map(); clearStorage();
+    setInventoryList([]); setUploadStatus(""); setCsvFileName(""); setLastScannedCode(""); setLastScanFound(false); setSearchQuery(""); setFoundCount(0); setDetectedColumns({}); setOrganizations([]); setFoundMap(new Map()); setFoundIdSet(new Set()); setNotFoundIdSet(new Set()); setPickRunMode(false); setPickRunData(null); setDeployReasonFilter("ALL"); lookupMapRef.current = new Map(); clearStorage();
     if (fileInputRef.current) fileInputRef.current.value = "";
     setGoogleState((prev) => ({ ...prev, realtimeSync: false, sheetHeaders: [], foundColumnIndex: -1 }));
   }, [setSearchQuery]);
@@ -1178,10 +1031,8 @@ export default function InventoryScanner() {
           return { ...itemWithFound, _id: uniqueId, _rowIndex: index } as InventoryItem;
         });
         setInventoryList(dataList); setFoundMap(initialFoundMap); setFoundIdSet(initialFoundIds); setCsvFileName(file.name); setFoundCount(initialFoundCount); setOrganizations(Array.from(uniqueOrganizations).sort()); setPickRunMode(false); setPickRunData(null); setDeployReasonFilter("ALL"); buildLookupMap(dataList);
-        let statusMsg = `Loaded ${dataList.length} items from "${file.name}"`;
-        if (initialFoundCount > 0) statusMsg += ` (${initialFoundCount} already found)`;
-        if (uniqueOrganizations.size > 0) statusMsg += ` with ${uniqueOrganizations.size} org(s)`;
-        setUploadStatus(statusMsg);
+        autoStartRef.current = true;
+        setUploadStatus(`Loaded ${dataList.length} devices for put away`);
         setLastScannedCode("");
         
       },
@@ -1382,6 +1233,14 @@ export default function InventoryScanner() {
     
   }, [inventoryList, deployReasonFilter, notFoundIdSet]);
 
+  // Auto-start put away run when a new cart is loaded
+  useEffect(() => {
+    if (autoStartRef.current && inventoryList.length > 0) {
+      autoStartRef.current = false;
+      generatePickRun();
+    }
+  }, [inventoryList.length, generatePickRun]);
+
   // Global keyboard capture (scanner works anywhere without manually focusing the scan box)
   useEffect(() => {
     if (inventoryList.length === 0) return;
@@ -1435,54 +1294,6 @@ export default function InventoryScanner() {
     };
   }, [inventoryList.length, processScannedCode]); // processScannedCode is stable (empty deps)
 
-  const deployReasonOptions = useMemo(() => {
-    const reasonMap = new Map<string, string>();
-    inventoryList.forEach((item) => {
-      const raw = getColumnValue(item, "deployReason");
-      const rawStr = raw?.toString().trim();
-      if (rawStr) {
-        const key = normalizeDeployReason(rawStr);
-        if (!reasonMap.has(key)) reasonMap.set(key, rawStr);
-      }
-    });
-    const sorted = Array.from(reasonMap.entries()).sort((a, b) => a[1].localeCompare(b[1]));
-
-    return [
-      { value: "ALL", label: "All Items" },
-      ...sorted.map(([key, original]) => ({ value: key, label: original })),
-      { value: "NONE", label: "No Deploy Reason" },
-    ];
-  }, [inventoryList]);
-
-  const organizationOptions = useMemo(() => {
-    const values = Array.from(new Set(inventoryList
-      .map((item) => (getColumnValue(item, "organization") || "").toString().trim())
-      .filter((org) => org && org !== "N/A")))
-      .sort((a, b) => a.localeCompare(b));
-
-    return [
-      { value: "ALL", label: "All Organizations" },
-      ...values.map((org) => ({ value: org, label: org })),
-      { value: "NONE", label: "No Organization" },
-    ];
-  }, [inventoryList]);
-
-  const matchesOrganizationFilter = useCallback((item: InventoryItem) => {
-    if (organizationFilter === "ALL") return true;
-    const org = (getColumnValue(item, "organization") || "").toString().trim();
-    if (organizationFilter === "NONE") return !org || org === "N/A";
-    return org === organizationFilter;
-  }, [organizationFilter]);
-
-  const filteredByReason = useMemo(() => deployReasonFilter === "ALL" ? inventoryList : inventoryList.filter((item) => matchesDeployReasonFilter(item, deployReasonFilter)), [inventoryList, deployReasonFilter]);
-  const filteredByOrg = useMemo(() => filteredByReason.filter(matchesOrganizationFilter), [filteredByReason, matchesOrganizationFilter]);
-  const displayList = searchQuery
-    ? filteredList.filter((item) => matchesDeployReasonFilter(item, deployReasonFilter) && matchesOrganizationFilter(item))
-    : filteredByOrg;
-  const sortedDisplayList = useMemo(() => [...displayList].sort((a, b) => { const getBucket = (item: InventoryItem) => isItemFound(item) ? 2 : isItemNotFound(item) ? 1 : 0; const aBucket = getBucket(a); const bBucket = getBucket(b); if (aBucket !== bBucket) return aBucket - bBucket; return a._rowIndex - b._rowIndex; }), [displayList, isItemFound, isItemNotFound]);
-  const filteredFoundCount = useMemo(() => displayList.filter(isItemFound).length, [displayList, isItemFound]);
-  const filteredNotFoundCount = useMemo(() => displayList.filter(isItemNotFound).length, [displayList, isItemNotFound]);
-  const unfoundCount = useMemo(() => filteredByReason.filter((item) => !isItemFound(item)).length, [filteredByReason, isItemFound]);
 
   const previousDeployReasonFilter = useRef(deployReasonFilter);
   useEffect(() => {
@@ -1499,7 +1310,7 @@ export default function InventoryScanner() {
         <Box mb="lg" style={{ textAlign: "center" }}>
           <Group justify="center" gap="xs" align="center">
             <Title order={2} style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", letterSpacing: "-0.5px" }}>
-              Inventory Scanner
+              Put Away
             </Title>
             <Tooltip label={isDark ? "Light mode" : "Dark mode"}>
               <ActionIcon variant="subtle" color="gray" onClick={toggleColorScheme} size="sm">
@@ -1528,7 +1339,7 @@ export default function InventoryScanner() {
                 }}
               />
               <Text size="xs" fw={600} style={{ color: inventoryList.length > 0 ? "#15803d" : "var(--text-secondary)" }}>
-                {inventoryList.length > 0 ? "Ready to Scan" : "Load inventory to begin"}
+                {inventoryList.length > 0 ? "Ready to put away" : "Upload cart to begin"}
               </Text>
             </Box>
           </Group>
@@ -1542,7 +1353,7 @@ export default function InventoryScanner() {
 
         {inventoryList.length > 0 && pickRunMode && pickRunData && (
           <PickRunView
-            pickRunData={pickRunData} inventoryList={inventoryList} detectedColumns={detectedColumns} foundIdSet={deferredFoundIdSet} notFoundIdSet={deferredNotFoundIdSet} deployReasonFilter={deployReasonFilter} deployReasonOptions={deployReasonOptions} onDeployReasonChange={setDeployReasonFilter} onClose={() => setPickRunMode(false)} lastScannedCode={lastScannedCode} lastScanFound={lastScanFound} notHereItems={notHereItems} onScan={processScannedCode}
+            pickRunData={pickRunData} inventoryList={inventoryList} detectedColumns={detectedColumns} foundIdSet={deferredFoundIdSet} onClose={() => setPickRunMode(false)} lastScannedCode={lastScannedCode} lastScanFound={lastScanFound} notHereItems={notHereItems} onScan={processScannedCode}
             onNotHere={(key, isNotHere, itemId) => {
               setNotHereItems((prev) => { const next = { ...prev }; if (isNotHere) next[key] = true; else delete next[key]; return next; });
               if (itemId) setNotFoundIdSet((prev) => { const next = new Set(prev); if (isNotHere) next.add(itemId); else next.delete(itemId); return next; });
@@ -1550,228 +1361,106 @@ export default function InventoryScanner() {
           />
         )}
 
-        {inventoryList.length > 0 && !pickRunMode && (
+        {/* Between-runs screen — cart loaded but run not active */}
+        {!pickRunMode && inventoryList.length > 0 && (
           <Stack gap="md">
-            <Select label="Deploy Reason Filter" value={deployReasonFilter} onChange={(v) => v && setDeployReasonFilter(v)} data={deployReasonOptions} leftSection={<IconFilter size={15} />} radius="xl" />
-            <Select label="Organization Filter" value={organizationFilter} onChange={(v) => v && setOrganizationFilter(v)} data={organizationOptions} leftSection={<IconFilter size={15} />} radius="xl" />
-
-            <SimpleGrid cols={2} spacing="sm">
-              <Button leftSection={<IconDownload size={16} />} onClick={exportCSV} disabled={inventoryList.length === 0} variant="light" color="indigo" radius="xl">Export CSV</Button>
-              <Button leftSection={<IconTrash size={16} />} variant="light" color="red" radius="xl" onClick={() => setShowResetConfirm(true)} disabled={inventoryList.length === 0}>Reset</Button>
-            </SimpleGrid>
+            <Paper radius="xl" p="lg" withBorder style={{ backgroundColor: "var(--section-bg)", borderColor: "var(--item-border)" }}>
+              <Group justify="space-between" align="center" mb="sm">
+                <Group gap="xs">
+                  <ThemeIcon radius="xl" size={32} color="indigo" variant="light">
+                    <IconClipboardList size={16} />
+                  </ThemeIcon>
+                  <Text fw={700} size="sm" style={{ color: "var(--text-primary)" }}>Cart loaded</Text>
+                </Group>
+                <Text size="xs" c="dimmed" truncate style={{ maxWidth: 200 }}>{csvFileName}</Text>
+              </Group>
+              <SimpleGrid cols={3} spacing="xs">
+                {[
+                  { value: inventoryList.length, label: "Devices", color: "var(--text-primary)" },
+                  { value: foundCount, label: "Put Away", color: "#16a34a" },
+                  { value: inventoryList.length - foundCount, label: "Remaining", color: "var(--text-secondary)" },
+                ].map((s) => (
+                  <Paper key={s.label} p="xs" radius="lg" withBorder style={{ backgroundColor: "var(--item-bg)", textAlign: "center" }}>
+                    <Text size="xl" fw={900} style={{ color: s.color, lineHeight: 1.1 }}>{s.value}</Text>
+                    <Text size="xs" fw={500} style={{ color: "var(--text-muted)", marginTop: 2 }}>{s.label}</Text>
+                  </Paper>
+                ))}
+              </SimpleGrid>
+            </Paper>
 
             <Button
               fullWidth size="lg"
               leftSection={<IconRoute size={20} />}
               onClick={() => { if (pickRunData) { setPickRunMode(true); } else generatePickRun(); }}
-              disabled={inventoryList.length === 0 || unfoundCount === 0}
               color="orange"
-              variant="light"
+              variant="filled"
               radius="xl"
               style={{ boxShadow: "var(--card-shadow)" }}
             >
-              Start Pick Run — {unfoundCount} items
+              {pickRunData ? "Resume Put Away Run" : "Start Put Away Run"}
             </Button>
 
-            <TextInput
-              placeholder="Scan or type barcode here…"
-              leftSection={<IconSearch size={16} />}
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  const val = e.currentTarget.value.trim();
-                  if (val) { processScannedCode(val); e.currentTarget.value = ""; }
-                }
-              }}
-              radius="xl"
-              size="md"
-              styles={{ input: { backgroundColor: "var(--card-bg)", border: "1.5px solid var(--item-border)" } }}
-            />
-
-            {lastScannedCode && <ScanResult scannedCode={lastScannedCode} found={lastScanFound} />}
-
-            <Paper
-              radius="xl"
-              p="md"
-              withBorder
-              style={{
-                backgroundColor: "var(--section-bg)",
-                borderColor: "var(--item-border)",
-                overflow: "visible",
-              }}
-            >
-              <Group justify="space-between" align="flex-start" mb="sm" wrap="wrap" gap="xs">
-                <Group gap="xs" align="center">
-                  <ThemeIcon radius="xl" size={30} variant="light" color="indigo">
-                    <IconClipboardList size={16} />
-                  </ThemeIcon>
-                  <div>
-                    <Text size="sm" fw={700} style={{ color: "var(--text-primary)", lineHeight: 1.2 }}>
-                      Inventory Items
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                      {displayList.length} filtered items • {inventoryList.length} total items
-                    </Text>
-                  </div>
-                </Group>
-
-                <Group gap={6}>
-                  <Badge radius="xl" variant="light" color="green">Found {filteredFoundCount}</Badge>
-                  <Badge radius="xl" variant="light" color="red">Not Found {filteredNotFoundCount}</Badge>
-                  <Badge radius="xl" variant="light" color="gray">Pending {Math.max(displayList.length - filteredFoundCount - filteredNotFoundCount, 0)}</Badge>
-                </Group>
-              </Group>
-
-              <TextInput
-                placeholder="Search by product, inventory ID, serial, organization…"
-                leftSection={<IconSearch size={15} />}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.currentTarget.value)}
-                radius="lg"
-                size="md"
-                mb="sm"
-                styles={{
-                  input: {
-                    backgroundColor: "var(--card-bg)",
-                    border: "1.5px solid var(--item-border)",
-                  },
-                }}
-              />
-
-
-
-              <Paper radius="lg" withBorder p={4} style={{ borderColor: "var(--item-border)", backgroundColor: "var(--card-bg)" }}>
-                <InfiniteScrollList
-                  items={sortedDisplayList}
-                  emptyContent={
-                    <Stack align="center" gap="xs" py="lg">
-                      <ThemeIcon radius="xl" size={48} color="gray" variant="light">
-                        <IconPackage size={22} />
-                      </ThemeIcon>
-                      <Text size="sm" fw={500} c="dimmed">{searchQuery ? "No items match your search" : "No items in inventory"}</Text>
-                    </Stack>
-                  }
-                  isItemFound={isItemFound}
-                  isItemNotFound={isItemNotFound}
-                />
-              </Paper>
-            </Paper>
+            <SimpleGrid cols={2} spacing="sm">
+              <Button leftSection={<IconDownload size={16} />} onClick={exportCSV} variant="light" color="indigo" radius="xl">Export CSV</Button>
+              <Button leftSection={<IconTrash size={16} />} variant="light" color="red" radius="xl" onClick={() => setShowResetConfirm(true)}>Load New Cart</Button>
+            </SimpleGrid>
           </Stack>
         )}
 
-        {!pickRunMode && (
+        {/* Upload screen — no cart loaded */}
+        {!pickRunMode && inventoryList.length === 0 && (
           <>
-            {inventoryList.length > 0 ? (
-              <>
-                <Divider my="xl" />
-                <Button
-                  variant="light"
-                  color="indigo"
-                  size="md"
+            <Divider my="xl" labelPosition="center" label={
+              <Text size="xs" fw={700} tt="uppercase" style={{ color: "var(--divider-color)", letterSpacing: "0.08em" }}>Upload Cart</Text>
+            } />
+            <Stack gap="md">
+              <Paper radius="xl" p="lg" style={{ border: "1.5px dashed var(--item-border)", backgroundColor: "var(--section-bg)" }}>
+                <Group gap="md" mb="sm">
+                  <ThemeIcon radius="xl" size={44} color="indigo" variant="light" style={{ flexShrink: 0 }}>
+                    <IconUpload size={20} />
+                  </ThemeIcon>
+                  <div>
+                    <Text fw={700} size="sm" style={{ color: "#3730a3" }}>Upload Device List (CSV)</Text>
+                    <Text size="xs" c="dimmed">Devices to put away from cart</Text>
+                  </div>
+                </Group>
+                <FileInput
+                  ref={fileInputRef as any}
+                  placeholder="Choose file…"
+                  accept=".csv,.CSV,.txt,.tsv,.tab"
+                  leftSection={<IconUpload size={15} />}
+                  onChange={onFileChange}
                   radius="xl"
-                  fullWidth
-                  onClick={() => setShowImportSection((v) => !v)}
-                  leftSection={<IconUpload size={16} />}
-                  style={{ boxShadow: "var(--card-shadow)" }}
-                >
-                  {showImportSection ? "Hide Import" : "Import Inventory"}
-                </Button>
-                <Collapse in={showImportSection}>
-                  <Stack gap="md" mt="md">
-                    <GoogleSheetsConnector
-                      googleState={googleState}
-                      onSignIn={handleGoogleSignIn}
-                      onSignOut={handleGoogleSignOut}
-                      onSelectSpreadsheet={handleGoogleSelectSpreadsheet}
-                      onSelectTab={handleGoogleSelectTab}
-                      onLoadSheet={handleGoogleLoadSheet}
-                      onToggleSync={handleGoogleToggleSync}
-                      onExportToSheet={handleGoogleExportToSheet}
-                      onDisconnect={handleGoogleDisconnect}
-                      hasInventory={inventoryList.length > 0}
-                      foundCount={foundCount}
-                      totalCount={inventoryList.length}
-                    />
-                    <Divider label={<Text size="xs" c="dimmed" fw={500}>or</Text>} labelPosition="center" />
-                    <Paper radius="xl" p="lg" style={{ border: "1.5px dashed var(--item-border)", backgroundColor: "var(--section-bg)" }}>
-                      <Group gap="md" mb="sm">
-                        <ThemeIcon radius="xl" size={44} color="indigo" variant="light" style={{ flexShrink: 0 }}>
-                          <IconUpload size={20} />
-                        </ThemeIcon>
-                        <div>
-                          <Text fw={700} size="sm" style={{ color: "#3730a3" }}>Upload CSV File</Text>
-                          <Text size="xs" c="dimmed">CSV, TXT, or TSV — click to browse</Text>
-                        </div>
-                      </Group>
-                      <FileInput
-                        ref={fileInputRef as any}
-                        placeholder="Choose file…"
-                        accept=".csv,.CSV,.txt,.tsv,.tab"
-                        leftSection={<IconUpload size={15} />}
-                        onChange={onFileChange}
-                        radius="xl"
-                        styles={{ input: { backgroundColor: "var(--card-bg)", border: "1.5px solid #e0e7ff" } }}
-                      />
-                      <Text size="xs" c="dimmed" ta="center" mt="xs">Supports: Inventory ID · Serial Number · Product Title · Organization · Deploy Reason</Text>
-                    </Paper>
-                  </Stack>
-                </Collapse>
-              </>
-            ) : (
-              <>
-                <Divider my="xl" labelPosition="center" label={
-                  <Text size="xs" fw={700} tt="uppercase" style={{ color: "var(--divider-color)", letterSpacing: "0.08em" }}>Import Inventory</Text>
-                } />
-                <Stack gap="md">
-                  <GoogleSheetsConnector
-                    googleState={googleState}
-                    onSignIn={handleGoogleSignIn}
-                    onSignOut={handleGoogleSignOut}
-                    onSelectSpreadsheet={handleGoogleSelectSpreadsheet}
-                    onSelectTab={handleGoogleSelectTab}
-                    onLoadSheet={handleGoogleLoadSheet}
-                    onToggleSync={handleGoogleToggleSync}
-                    onExportToSheet={handleGoogleExportToSheet}
-                    onDisconnect={handleGoogleDisconnect}
-                    hasInventory={inventoryList.length > 0}
-                    foundCount={foundCount}
-                    totalCount={inventoryList.length}
-                  />
-                  <Divider label={<Text size="xs" c="dimmed" fw={500}>or</Text>} labelPosition="center" />
-                  <Paper radius="xl" p="lg" style={{ border: "1.5px dashed var(--item-border)", backgroundColor: "var(--section-bg)" }}>
-                    <Group gap="md" mb="sm">
-                      <ThemeIcon radius="xl" size={44} color="indigo" variant="light" style={{ flexShrink: 0 }}>
-                        <IconUpload size={20} />
-                      </ThemeIcon>
-                      <div>
-                        <Text fw={700} size="sm" style={{ color: "#3730a3" }}>Upload CSV File</Text>
-                        <Text size="xs" c="dimmed">CSV, TXT, or TSV — click to browse</Text>
-                      </div>
-                    </Group>
-                    <FileInput
-                      ref={fileInputRef as any}
-                      placeholder="Choose file…"
-                      accept=".csv,.CSV,.txt,.tsv,.tab"
-                      leftSection={<IconUpload size={15} />}
-                      onChange={onFileChange}
-                      radius="xl"
-                      styles={{ input: { backgroundColor: "var(--card-bg)", border: "1.5px solid #e0e7ff" } }}
-                    />
-                    <Text size="xs" c="dimmed" ta="center" mt="xs">Supports: Inventory ID · Serial Number · Product Title · Organization · Deploy Reason</Text>
-                  </Paper>
-                </Stack>
-              </>
-            )}
+                  styles={{ input: { backgroundColor: "var(--card-bg)", border: "1.5px solid #e0e7ff" } }}
+                />
+                <Text size="xs" c="dimmed" ta="center" mt="xs">Supports: Inventory ID · Serial Number · Product Title · Organization</Text>
+              </Paper>
+              <Divider label={<Text size="xs" c="dimmed" fw={500}>or connect Google Sheets</Text>} labelPosition="center" />
+              <GoogleSheetsConnector
+                googleState={googleState}
+                onSignIn={handleGoogleSignIn}
+                onSignOut={handleGoogleSignOut}
+                onSelectSpreadsheet={handleGoogleSelectSpreadsheet}
+                onSelectTab={handleGoogleSelectTab}
+                onLoadSheet={handleGoogleLoadSheet}
+                onToggleSync={handleGoogleToggleSync}
+                onExportToSheet={handleGoogleExportToSheet}
+                onDisconnect={handleGoogleDisconnect}
+                hasInventory={inventoryList.length > 0}
+                foundCount={foundCount}
+                totalCount={inventoryList.length}
+              />
+            </Stack>
           </>
         )}
       </Card>
 
-      <Modal opened={showResetConfirm} onClose={() => setShowResetConfirm(false)} title={<Text fw={700} size="md">Reset All Data?</Text>} centered radius="xl">
+      <Modal opened={showResetConfirm} onClose={() => setShowResetConfirm(false)} title={<Text fw={700} size="md">Load New Cart?</Text>} centered radius="xl">
         <Stack gap="md">
-          <Text size="sm" c="dimmed" lh={1.6}>This will permanently delete your inventory, all scan progress, and the saved session. This cannot be undone.</Text>
+          <Text size="sm" c="dimmed" lh={1.6}>This will clear the current cart and all put away progress. This cannot be undone.</Text>
           <SimpleGrid cols={2} spacing="sm">
             <Button variant="default" radius="xl" onClick={() => { setShowResetConfirm(false); }}>Cancel</Button>
-            <Button color="red" radius="xl" onClick={() => { setShowResetConfirm(false); clearInventory(); }}>Yes, Reset</Button>
+            <Button color="red" radius="xl" onClick={() => { setShowResetConfirm(false); clearInventory(); }}>Yes, Load New</Button>
           </SimpleGrid>
         </Stack>
       </Modal>
