@@ -125,6 +125,16 @@ export async function readSheetData(spreadsheetId: string, sheetTitle: string): 
   return { headers, rows };
 }
 
+export async function readRawSheetValues(spreadsheetId: string, sheetTitle: string): Promise<string[][]> {
+  if (!accessToken) throw new Error("Not authenticated");
+  const resp = await g().values.get({
+    spreadsheetId,
+    range: `'${sheetTitle}'`,
+    valueRenderOption: "FORMATTED_VALUE",
+  });
+  return (resp.result.values || []) as string[][];
+}
+
 export async function batchUpdateCells(spreadsheetId: string, sheetTitle: string, updates: Array<{ row: number; column: number; value: string | boolean }>): Promise<void> {
   if (!accessToken) throw new Error("Not authenticated");
   const data = updates.map((u) => ({ range: `'${sheetTitle}'!${colLetter(u.column)}${u.row}`, values: [[u.value]] }));
