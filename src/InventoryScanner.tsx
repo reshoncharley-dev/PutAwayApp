@@ -504,10 +504,9 @@ const PickRunView: React.FC<{
   notHereItems: Record<string, boolean>;
   queuedIdSet: Set<string>;
   skippedIdSet: Set<string>;
-  onPutAway: (itemId: string) => void;
   onToggleQueue: (itemId: string) => void;
   onToggleSkip: (itemId: string) => void;
-}> = ({ pickRunData, inventoryList, detectedColumns, foundIdSet, notHereItems, queuedIdSet, skippedIdSet, onPutAway, onToggleQueue, onToggleSkip }) => {
+}> = ({ pickRunData, inventoryList, detectedColumns, foundIdSet, notHereItems, queuedIdSet, skippedIdSet, onToggleQueue, onToggleSkip }) => {
   const [expandedZones, setExpandedZones] = useState<Record<string, boolean>>({}); // collapsed by default for performance
   const inventoryById = useMemo(() => { const map = new Map<string, InventoryItem>(); inventoryList.forEach((item) => map.set(item._id, item)); return map; }, [inventoryList]);
   const foundColumnName = detectedColumns.found || "Found";
@@ -653,16 +652,6 @@ const PickRunView: React.FC<{
         const scannedCount = zone.items.reduce((acc, item) => acc + (!item._notHere && isFoundItem(item) ? 1 : 0), 0);
         const remainingCount = Math.max(0, zone.items.length - scannedCount - notFoundCount);
 
-        // Compute org-level queued status for this zone
-        const orgItemsInZone = isActiveZone && activeOrganization
-          ? zone.items.filter((item) => {
-              const org = (getColumnValue(item, "organization") || "").toString().trim().toLowerCase();
-              return org === activeOrganization.trim().toLowerCase();
-            })
-          : [];
-        const orgUnfinalized = orgItemsInZone.filter((item) => !isFoundItem(item) && !item._notHere && !skippedIdSet.has(item._id));
-        const orgAllQueued = orgUnfinalized.length > 0 && orgUnfinalized.every((item) => queuedIdSet.has(item._id));
-        const orgQueuedIds = orgUnfinalized.filter((item) => queuedIdSet.has(item._id)).map((item) => item._id);
 
         const orgBreakdown: Array<{ org: string; remaining: number; total: number }> = [];
         const orgMap = new Map<string, { remaining: number; total: number }>();
@@ -736,36 +725,6 @@ const PickRunView: React.FC<{
                 <IconChevronDown size={16} style={{ color: "var(--text-muted)", transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }} />
               )}
             </Group>
-            {isActiveZone && orgAllQueued && (
-              <Box
-                p="sm"
-                onClick={(e) => e.stopPropagation()}
-                style={{
-                  background: "linear-gradient(135deg, rgba(22,163,74,0.10) 0%, rgba(22,163,74,0.05) 100%)",
-                  borderTop: "1.5px solid rgba(22,163,74,0.25)",
-                }}
-              >
-                <Group gap="sm" align="center" wrap="nowrap">
-                  <ThemeIcon radius="xl" size={42} color="green" variant="light" style={{ flexShrink: 0 }}>
-                    <IconCheck size={20} />
-                  </ThemeIcon>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <Text size="xs" fw={600} c="dimmed">Ready to put away</Text>
-                    <Text size="sm" fw={800} truncate style={{ color: "var(--text-primary)" }}>{activeOrganization}</Text>
-                  </div>
-                  <Button
-                    color="green"
-                    radius="xl"
-                    size="md"
-                    fw={800}
-                    onClick={() => orgQueuedIds.forEach((id) => onPutAway(id))}
-                    style={{ flexShrink: 0, boxShadow: "0 3px 14px rgba(22,163,74,0.45)", letterSpacing: 0.3 }}
-                  >
-                    Put Away · {orgQueuedIds.length}
-                  </Button>
-                </Group>
-              </Box>
-            )}
             <Collapse in={canExpand && isExpanded}>
               {canExpand && isExpanded && (
                 <Box style={{ borderTop: `1px solid ${borderColor}` }}>
@@ -1283,24 +1242,6 @@ export default function InventoryScanner() {
                 if (next.has(itemId)) { next.delete(itemId); } else { next.add(itemId); }
                 return next;
               });
-            }}
-            onPutAway={(itemId) => {
-              setQueuedIdSet((prev) => {
-                if (!prev.has(itemId)) return prev;
-                const next = new Set(prev);
-                next.delete(itemId);
-                return next;
-              });
-              setFoundIdSet((prev) => {
-                const next = new Set(prev);
-                next.add(itemId);
-                return next;
-              });
-              if (notFoundIdSetRef.current.has(itemId)) {
-                setNotFoundIdSet((prev) => { const next = new Set(prev); next.delete(itemId); return next; });
-              }
-              const item = inventoryListRef.current.find((x) => x._id === itemId);
-              if (item) queueGoogleSyncRef.current?.(item);
             }}
           />
         )}
